@@ -20,7 +20,7 @@ android/captures/
 *.aab
 
 # Supabase
-supabase/.temp/
+**/.temp/
 supabase/.branches/
 .env
 .env.*
