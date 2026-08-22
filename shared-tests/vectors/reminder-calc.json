@@ -1,0 +1,148 @@
+{
+  "description": "提醒阈值与下次触发时刻计算(协议 §13)。输入:kind(instant|duration)、reminder_mode(auto|fixed)、reminder_fixed_interval_sec、events(按任意序给出,含 started_at/ended_at/status/deleted)。计算规则:排除 deleted 事件,按 started_at 升序取最近 REMINDER_SAMPLE_N=20 个事件为样本;auto 模式要求样本事件数 >= REMINDER_MIN_SAMPLES=5,否则不提醒;间隔 = 样本内相邻事件 started_at 之差(秒);P90 = 间隔升序排列后第 ceil(0.9*n) 个(1-based);fixed 模式阈值 = reminder_fixed_interval_sec(至少需 1 个事件作锚点);锚点 = 最近事件的 started_at(instant)或 ended_at ?? started_at(duration);next_fire_at = 锚点 + 阈值;样本中存在 status=ongoing 的事件则不提醒。expected 中 null 表示不提醒。",
+  "cases": [
+    {
+      "name": "auto_p90_basic_instant",
+      "kind": "instant",
+      "reminder_mode": "auto",
+      "events": [
+        { "started_at": "2026-08-21T00:00:00.000Z" },
+        { "started_at": "2026-08-21T03:00:00.000Z" },
+        { "started_at": "2026-08-21T05:30:00.000Z" },
+        { "started_at": "2026-08-21T08:30:00.000Z" },
+        { "started_at": "2026-08-21T11:00:00.000Z" },
+        { "started_at": "2026-08-21T14:00:00.000Z" }
+      ],
+      "expected": { "threshold_sec": 10800, "next_fire_at": "2026-08-21T17:00:00.000Z" }
+    },
+    {
+      "name": "auto_insufficient_samples",
+      "kind": "instant",
+      "reminder_mode": "auto",
+      "events": [
+        { "started_at": "2026-08-21T00:00:00.000Z" },
+        { "started_at": "2026-08-21T03:00:00.000Z" },
+        { "started_at": "2026-08-21T06:00:00.000Z" },
+        { "started_at": "2026-08-21T09:00:00.000Z" }
+      ],
+      "expected": { "threshold_sec": null, "next_fire_at": null }
+    },
+    {
+      "name": "fixed_mode_ignores_pattern",
+      "kind": "instant",
+      "reminder_mode": "fixed",
+      "reminder_fixed_interval_sec": 14400,
+      "events": [
+        { "started_at": "2026-08-21T00:00:00.000Z" },
+        { "started_at": "2026-08-21T10:00:00.000Z" }
+      ],
+      "expected": { "threshold_sec": 14400, "next_fire_at": "2026-08-21T14:00:00.000Z" }
+    },
+    {
+      "name": "fixed_mode_no_events_no_anchor",
+      "kind": "instant",
+      "reminder_mode": "fixed",
+      "reminder_fixed_interval_sec": 14400,
+      "events": [],
+      "expected": { "threshold_sec": null, "next_fire_at": null }
+    },
+    {
+      "name": "duration_anchor_uses_ended_at",
+      "kind": "duration",
+      "reminder_mode": "auto",
+      "events": [
+        { "started_at": "2026-08-21T00:00:00.000Z", "ended_at": "2026-08-21T00:20:00.000Z", "status": "done" },
+        { "started_at": "2026-08-21T03:00:00.000Z", "ended_at": "2026-08-21T03:25:00.000Z", "status": "done" },
+        { "started_at": "2026-08-21T05:30:00.000Z", "ended_at": "2026-08-21T05:50:00.000Z", "status": "done" },
+        { "started_at": "2026-08-21T08:30:00.000Z", "ended_at": "2026-08-21T08:55:00.000Z", "status": "done" },
+        { "started_at": "2026-08-21T11:00:00.000Z", "ended_at": "2026-08-21T11:30:00.000Z", "status": "done" },
+        { "started_at": "2026-08-21T14:00:00.000Z", "ended_at": "2026-08-21T14:15:00.000Z", "status": "done" }
+      ],
+      "comment": "间隔仍按 started_at 计算(P90=10800),锚点用最近一次的 ended_at 14:15",
+      "expected": { "threshold_sec": 10800, "next_fire_at": "2026-08-21T17:15:00.000Z" }
+    },
+    {
+      "name": "ongoing_suppresses_reminder",
+      "kind": "duration",
+      "reminder_mode": "auto",
+      "events": [
+        { "started_at": "2026-08-21T00:00:00.000Z", "ended_at": "2026-08-21T00:20:00.000Z", "status": "done" },
+        { "started_at": "2026-08-21T03:00:00.000Z", "ended_at": "2026-08-21T03:25:00.000Z", "status": "done" },
+        { "started_at": "2026-08-21T05:30:00.000Z", "ended_at": "2026-08-21T05:50:00.000Z", "status": "done" },
+        { "started_at": "2026-08-21T08:30:00.000Z", "ended_at": "2026-08-21T08:55:00.000Z", "status": "done" },
+        { "started_at": "2026-08-21T11:00:00.000Z", "ended_at": "2026-08-21T11:30:00.000Z", "status": "done" },
+        { "started_at": "2026-08-21T14:00:00.000Z", "ended_at": null, "status": "ongoing" }
+      ],
+      "expected": { "threshold_sec": null, "next_fire_at": null }
+    },
+    {
+      "name": "deleted_events_excluded",
+      "kind": "instant",
+      "reminder_mode": "auto",
+      "comment": "12:30 的已删除事件不参与:样本仍为 6 个事件,结果同 auto_p90_basic_instant",
+      "events": [
+        { "started_at": "2026-08-21T00:00:00.000Z" },
+        { "started_at": "2026-08-21T03:00:00.000Z" },
+        { "started_at": "2026-08-21T05:30:00.000Z" },
+        { "started_at": "2026-08-21T08:30:00.000Z" },
+        { "started_at": "2026-08-21T11:00:00.000Z" },
+        { "started_at": "2026-08-21T12:30:00.000Z", "deleted": true },
+        { "started_at": "2026-08-21T14:00:00.000Z" }
+      ],
+      "expected": { "threshold_sec": 10800, "next_fire_at": "2026-08-21T17:00:00.000Z" }
+    },
+    {
+      "name": "p90_picks_upper_value",
+      "kind": "instant",
+      "reminder_mode": "auto",
+      "comment": "9 个间隔:8 个 3600s + 1 个 7200s;idx=ceil(0.9*9)=9 → 7200",
+      "events": [
+        { "started_at": "2026-08-21T00:00:00.000Z" },
+        { "started_at": "2026-08-21T01:00:00.000Z" },
+        { "started_at": "2026-08-21T02:00:00.000Z" },
+        { "started_at": "2026-08-21T03:00:00.000Z" },
+        { "started_at": "2026-08-21T04:00:00.000Z" },
+        { "started_at": "2026-08-21T05:00:00.000Z" },
+        { "started_at": "2026-08-21T06:00:00.000Z" },
+        { "started_at": "2026-08-21T07:00:00.000Z" },
+        { "started_at": "2026-08-21T08:00:00.000Z" },
+        { "started_at": "2026-08-21T10:00:00.000Z" }
+      ],
+      "expected": { "threshold_sec": 7200, "next_fire_at": "2026-08-21T12:00:00.000Z" }
+    },
+    {
+      "name": "sample_window_last_20_events",
+      "kind": "instant",
+      "reminder_mode": "auto",
+      "comment": "25 个事件:前 6 个间隔 24h,后 19 个间隔 3h;仅最近 20 个事件入样本(即最后 19 个间隔均为 10800)→ P90=10800。若错误地用全部 24 个间隔,P90 会是 86400",
+      "events": [
+        { "started_at": "2026-08-10T00:00:00.000Z" },
+        { "started_at": "2026-08-11T00:00:00.000Z" },
+        { "started_at": "2026-08-12T00:00:00.000Z" },
+        { "started_at": "2026-08-13T00:00:00.000Z" },
+        { "started_at": "2026-08-14T00:00:00.000Z" },
+        { "started_at": "2026-08-15T00:00:00.000Z" },
+        { "started_at": "2026-08-15T03:00:00.000Z" },
+        { "started_at": "2026-08-15T06:00:00.000Z" },
+        { "started_at": "2026-08-15T09:00:00.000Z" },
+        { "started_at": "2026-08-15T12:00:00.000Z" },
+        { "started_at": "2026-08-15T15:00:00.000Z" },
+        { "started_at": "2026-08-15T18:00:00.000Z" },
+        { "started_at": "2026-08-15T21:00:00.000Z" },
+        { "started_at": "2026-08-16T00:00:00.000Z" },
+        { "started_at": "2026-08-16T03:00:00.000Z" },
+        { "started_at": "2026-08-16T06:00:00.000Z" },
+        { "started_at": "2026-08-16T09:00:00.000Z" },
+        { "started_at": "2026-08-16T12:00:00.000Z" },
+        { "started_at": "2026-08-16T15:00:00.000Z" },
+        { "started_at": "2026-08-16T18:00:00.000Z" },
+        { "started_at": "2026-08-16T21:00:00.000Z" },
+        { "started_at": "2026-08-17T00:00:00.000Z" },
+        { "started_at": "2026-08-17T03:00:00.000Z" },
+        { "started_at": "2026-08-17T06:00:00.000Z" },
+        { "started_at": "2026-08-17T09:00:00.000Z" }
+      ],
+      "expected": { "threshold_sec": 10800, "next_fire_at": "2026-08-17T12:00:00.000Z" }
+    }
+  ]
+}

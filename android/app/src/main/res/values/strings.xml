@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KidSchedule</string>
+    <string name="widget_description">一键记录宝宝的喂奶、尿便等日常</string>
+</resources>

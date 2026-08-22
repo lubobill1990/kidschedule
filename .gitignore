@@ -1,0 +1,34 @@
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# iOS
+ios/**/xcuserdata/
+ios/**/*.xcodeproj/project.xcworkspace/xcuserdata/
+ios/**/DerivedData/
+ios/**/.build/
+ios/Pods/
+
+# Android
+android/.gradle/
+android/build/
+android/**/build/
+android/local.properties
+android/.idea/
+android/captures/
+*.apk
+*.aab
+
+# Supabase
+supabase/.temp/
+supabase/.branches/
+.env
+.env.*
+!.env.example
+
+# Misc
+*.log
+
+# Signing
+android/keystore/
+android/keystore.properties

@@ -1,0 +1,134 @@
+{
+  "description": "Outbox 状态机与撤销窗口(协议 §3 §5 §6)。UNDO_WINDOW_SEC=10。steps 按序执行;action 语义:quick_record=带撤销窗口的写入(本地行+held);normal_write=普通写入(本地行+pending,与既有未 acked 非 inflight 项合并);undo=撤销(仅 held 有效,物理删本地行+outbox 项,否则 rejected 且无副作用);tick=推进时钟并释放过期 held;push_begin=pending→inflight;push_ack=inflight 项 acked 删除;push_fail=inflight→pending;pull_remote_wins=拉到远端赢的版本,覆盖本地行并删除该 id 全部未 acked outbox 项(含 held,但本地行保留为远端版本)。expected 描述最终 outbox(entity_id→state 列表)与各 entity_id 本地行是否存在。",
+  "cases": [
+    {
+      "name": "held_releases_after_window",
+      "steps": [
+        { "action": "quick_record", "entity_id": "e1", "t": "2026-08-21T10:00:00.000Z" },
+        { "action": "tick", "t": "2026-08-21T10:00:10.000Z" }
+      ],
+      "expected": {
+        "outbox": [ { "entity_id": "e1", "state": "pending" } ],
+        "local_rows": { "e1": true }
+      }
+    },
+    {
+      "name": "held_not_released_before_window",
+      "steps": [
+        { "action": "quick_record", "entity_id": "e1", "t": "2026-08-21T10:00:00.000Z" },
+        { "action": "tick", "t": "2026-08-21T10:00:09.999Z" }
+      ],
+      "expected": {
+        "outbox": [ { "entity_id": "e1", "state": "held" } ],
+        "local_rows": { "e1": true }
+      }
+    },
+    {
+      "name": "undo_within_window_removes_everything",
+      "steps": [
+        { "action": "quick_record", "entity_id": "e1", "t": "2026-08-21T10:00:00.000Z" },
+        { "action": "undo", "entity_id": "e1", "t": "2026-08-21T10:00:05.000Z", "expect_result": "ok" }
+      ],
+      "expected": {
+        "outbox": [],
+        "local_rows": { "e1": false }
+      }
+    },
+    {
+      "name": "undo_after_window_rejected",
+      "steps": [
+        { "action": "quick_record", "entity_id": "e1", "t": "2026-08-21T10:00:00.000Z" },
+        { "action": "tick", "t": "2026-08-21T10:00:11.000Z" },
+        { "action": "undo", "entity_id": "e1", "t": "2026-08-21T10:00:12.000Z", "expect_result": "rejected" }
+      ],
+      "expected": {
+        "outbox": [ { "entity_id": "e1", "state": "pending" } ],
+        "local_rows": { "e1": true }
+      }
+    },
+    {
+      "name": "edit_during_hold_keeps_held",
+      "comment": "撤销窗口内又修改该行(如立即点结束):行更新,outbox 仍 held 且不新增项(协议 §5)",
+      "steps": [
+        { "action": "quick_record", "entity_id": "e1", "t": "2026-08-21T10:00:00.000Z" },
+        { "action": "normal_write", "entity_id": "e1", "t": "2026-08-21T10:00:03.000Z" }
+      ],
+      "expected": {
+        "outbox": [ { "entity_id": "e1", "state": "held" } ],
+        "local_rows": { "e1": true }
+      }
+    },
+    {
+      "name": "push_ack_removes_item",
+      "steps": [
+        { "action": "normal_write", "entity_id": "e1", "t": "2026-08-21T10:00:00.000Z" },
+        { "action": "push_begin", "t": "2026-08-21T10:00:01.000Z" },
+        { "action": "push_ack", "t": "2026-08-21T10:00:02.000Z" }
+      ],
+      "expected": {
+        "outbox": [],
+        "local_rows": { "e1": true }
+      }
+    },
+    {
+      "name": "push_fail_back_to_pending",
+      "steps": [
+        { "action": "normal_write", "entity_id": "e1", "t": "2026-08-21T10:00:00.000Z" },
+        { "action": "push_begin", "t": "2026-08-21T10:00:01.000Z" },
+        { "action": "push_fail", "t": "2026-08-21T10:00:02.000Z" }
+      ],
+      "expected": {
+        "outbox": [ { "entity_id": "e1", "state": "pending" } ],
+        "local_rows": { "e1": true }
+      }
+    },
+    {
+      "name": "write_while_inflight_creates_new_pending",
+      "steps": [
+        { "action": "normal_write", "entity_id": "e1", "t": "2026-08-21T10:00:00.000Z" },
+        { "action": "push_begin", "t": "2026-08-21T10:00:01.000Z" },
+        { "action": "normal_write", "entity_id": "e1", "t": "2026-08-21T10:00:02.000Z" },
+        { "action": "push_ack", "t": "2026-08-21T10:00:03.000Z" }
+      ],
+      "expected": {
+        "outbox": [ { "entity_id": "e1", "state": "pending" } ],
+        "local_rows": { "e1": true }
+      }
+    },
+    {
+      "name": "repeated_pending_writes_merge_to_one",
+      "steps": [
+        { "action": "normal_write", "entity_id": "e1", "t": "2026-08-21T10:00:00.000Z" },
+        { "action": "normal_write", "entity_id": "e1", "t": "2026-08-21T10:00:01.000Z" },
+        { "action": "normal_write", "entity_id": "e1", "t": "2026-08-21T10:00:02.000Z" }
+      ],
+      "expected": {
+        "outbox": [ { "entity_id": "e1", "state": "pending" } ],
+        "local_rows": { "e1": true }
+      }
+    },
+    {
+      "name": "pull_remote_wins_drops_pending_item",
+      "steps": [
+        { "action": "normal_write", "entity_id": "e1", "t": "2026-08-21T10:00:00.000Z" },
+        { "action": "pull_remote_wins", "entity_id": "e1", "t": "2026-08-21T10:00:05.000Z" }
+      ],
+      "expected": {
+        "outbox": [],
+        "local_rows": { "e1": true }
+      }
+    },
+    {
+      "name": "pull_remote_wins_drops_held_but_keeps_row",
+      "comment": "held 项被远端赢家取代:outbox 项删除,本地行保留为远端版本(协议 §6)",
+      "steps": [
+        { "action": "quick_record", "entity_id": "e1", "t": "2026-08-21T10:00:00.000Z" },
+        { "action": "pull_remote_wins", "entity_id": "e1", "t": "2026-08-21T10:00:05.000Z" }
+      ],
+      "expected": {
+        "outbox": [],
+        "local_rows": { "e1": true }
+      }
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "description": "LWW 整行合并裁决(协议 §6)。输入为同一 id 的两个版本:a(现存)与 b(新来),每个版本给出 client_updated_at 与 device_id。expected 取值:b_wins | a_wins | equal_keep_a(视为同一版本,幂等保持 a)。裁决与行内容无关,仅由这两个字段决定;delete/auto_end 等 case 仅用于说明业务场景,payload 字段不参与裁决。",
+  "cases": [
+    {
+      "name": "b_newer_wins",
+      "a": { "client_updated_at": "2026-08-21T10:00:00.000Z", "device_id": "aaaa-device" },
+      "b": { "client_updated_at": "2026-08-21T10:00:01.000Z", "device_id": "bbbb-device" },
+      "expected": "b_wins"
+    },
+    {
+      "name": "a_newer_wins",
+      "a": { "client_updated_at": "2026-08-21T10:00:05.000Z", "device_id": "aaaa-device" },
+      "b": { "client_updated_at": "2026-08-21T10:00:01.000Z", "device_id": "bbbb-device" },
+      "expected": "a_wins"
+    },
+    {
+      "name": "tie_b_device_greater",
+      "a": { "client_updated_at": "2026-08-21T10:00:00.000Z", "device_id": "aaaa-device" },
+      "b": { "client_updated_at": "2026-08-21T10:00:00.000Z", "device_id": "bbbb-device" },
+      "expected": "b_wins"
+    },
+    {
+      "name": "tie_a_device_greater",
+      "a": { "client_updated_at": "2026-08-21T10:00:00.000Z", "device_id": "zzzz-device" },
+      "b": { "client_updated_at": "2026-08-21T10:00:00.000Z", "device_id": "bbbb-device" },
+      "expected": "a_wins"
+    },
+    {
+      "name": "tie_same_device_idempotent",
+      "a": { "client_updated_at": "2026-08-21T10:00:00.000Z", "device_id": "aaaa-device" },
+      "b": { "client_updated_at": "2026-08-21T10:00:00.000Z", "device_id": "aaaa-device" },
+      "expected": "equal_keep_a"
+    },
+    {
+      "name": "millisecond_precision_matters",
+      "a": { "client_updated_at": "2026-08-21T10:00:00.001Z", "device_id": "aaaa-device" },
+      "b": { "client_updated_at": "2026-08-21T10:00:00.000Z", "device_id": "zzzz-device" },
+      "expected": "a_wins"
+    },
+    {
+      "name": "delete_newer_beats_update",
+      "comment": "b 是软删除(deleted_at 已置),时间更新 → 删除赢",
+      "a": { "client_updated_at": "2026-08-21T10:00:00.000Z", "device_id": "aaaa-device" },
+      "b": { "client_updated_at": "2026-08-21T10:00:02.000Z", "device_id": "bbbb-device" },
+      "expected": "b_wins"
+    },
+    {
+      "name": "update_newer_resurrects_delete",
+      "comment": "a 是软删除,b 是更晚的修改 → 行复活",
+      "a": { "client_updated_at": "2026-08-21T10:00:00.000Z", "device_id": "aaaa-device" },
+      "b": { "client_updated_at": "2026-08-21T10:00:03.000Z", "device_id": "bbbb-device" },
+      "expected": "b_wins"
+    },
+    {
+      "name": "manual_end_beats_earlier_auto_end",
+      "comment": "a 是设备甲的 auto_end(先发生),b 是设备乙稍后的手动结束 → 手动赢",
+      "a": { "client_updated_at": "2026-08-21T12:30:00.000Z", "device_id": "aaaa-device" },
+      "b": { "client_updated_at": "2026-08-21T12:30:05.000Z", "device_id": "bbbb-device" },
+      "expected": "b_wins"
+    },
+    {
+      "name": "concurrent_auto_end_converges",
+      "comment": "两台设备几乎同时 auto_end 同一事件,内容等价,tie 由 device_id 决定 → 确定性收敛",
+      "a": { "client_updated_at": "2026-08-21T12:30:00.000Z", "device_id": "device-alpha" },
+      "b": { "client_updated_at": "2026-08-21T12:30:00.000Z", "device_id": "device-beta" },
+      "expected": "b_wins"
+    }
+  ]
+}
