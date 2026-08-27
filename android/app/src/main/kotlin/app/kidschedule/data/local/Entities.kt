@@ -75,6 +75,16 @@ data class EventAttachmentEntity(
     val deviceId: String,
 )
 
+// 成员资料只读缓存,每次 sync 全量刷新,不走 outbox
+@Entity(tableName = "family_members", primaryKeys = ["familyId", "userId"])
+data class FamilyMemberEntity(
+    val familyId: String,
+    val userId: String,
+    val role: String, // owner | member
+    val displayName: String?,
+    val avatarEmoji: String?,
+)
+
 @Entity(
     tableName = "outbox",
     indices = [Index(value = ["entityId"]), Index(value = ["state"])],

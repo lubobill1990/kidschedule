@@ -11,10 +11,27 @@ struct SettingsView: View {
     @State private var error: String?
     @State private var showAddBaby = false
     @State private var newBabyName = ""
+    @State private var showEditProfile = false
+    @State private var profileEmoji = ""
+    @State private var profileName = ""
+    @State private var profileBusy = false
+
+    private var me: FamilyMemberRow? {
+        model.members.first { $0.userId == model.myUserId }
+    }
 
     var body: some View {
         NavigationStack {
             Form {
+                Section("我的资料") {
+                    LabeledContent("头像", value: me?.avatarEmoji ?? "👤")
+                    LabeledContent("昵称", value: me?.displayName ?? "未设置")
+                    Button("编辑资料") {
+                        profileEmoji = me?.avatarEmoji ?? ""
+                        profileName = me?.displayName ?? ""
+                        showEditProfile = true
+                    }
+                }
                 Section("家庭") {
                     LabeledContent("名称", value: familyName ?? "…")
                     if let code = inviteCode {
@@ -66,6 +83,44 @@ struct SettingsView: View {
                 Button("添加") { addBaby() }
                 Button("取消", role: .cancel) {}
             }
+            .alert("编辑资料", isPresented: $showEditProfile) {
+                TextField("头像 emoji", text: $profileEmoji)
+                TextField("昵称", text: $profileName)
+                Button("保存") { saveProfile() }
+                Button("取消", role: .cancel) {}
+            }
+        }
+    }
+
+    /// 在线操作(security definer RPC),成功后回写本地缓存
+    private func saveProfile() {
+        guard let fid = env.familyId, !profileBusy else { return }
+        let emoji = profileEmoji.trimmingCharacters(in: .whitespaces)
+        let name = profileName.trimmingCharacters(in: .whitespaces)
+        profileBusy = true
+        error = nil
+        Task {
+            do {
+                try await env.familyRepo.updateMyProfile(
+                    familyId: fid,
+                    displayName: name.isEmpty ? nil : name,
+                    avatarEmoji: emoji.isEmpty ? nil : emoji
+                )
+                if let uid = model.myUserId {
+                    try? await env.db.dbQueue.write { db in
+                        try FamilyMemberRow(
+                            familyId: fid, userId: uid,
+                            role: me?.role ?? "member",
+                            displayName: name.isEmpty ? nil : name,
+                            avatarEmoji: emoji.isEmpty ? nil : emoji
+                        ).save(db)
+                    }
+                }
+                await model.reload(env: env)
+            } catch {
+                self.error = "保存失败:\(error.localizedDescription)"
+            }
+            profileBusy = false
         }
     }
 

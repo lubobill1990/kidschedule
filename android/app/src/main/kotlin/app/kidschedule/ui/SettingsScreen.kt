@@ -34,6 +34,7 @@ import androidx.compose.ui.window.Dialog
 import app.kidschedule.KidScheduleApp
 import app.kidschedule.data.local.ActivityTypeEntity
 import app.kidschedule.data.local.BabyEntity
+import app.kidschedule.data.local.FamilyMemberEntity
 import app.kidschedule.data.sync.syncWithRetry
 import kotlinx.coroutines.launch
 
@@ -48,6 +49,10 @@ fun SettingsScreen(app: KidScheduleApp, familyId: String, onBack: () -> Unit) {
     var editType by remember { mutableStateOf<ActivityTypeEntity?>(null) }
     var addingType by remember { mutableStateOf(false) }
     var inviteCode by remember { mutableStateOf<String?>(null) }
+    var editingProfile by remember { mutableStateOf(false) }
+    val myUserId = remember { app.authRepo.currentUserId() }
+    val members by app.database.familyMemberDao().observeAll(familyId).collectAsState(initial = emptyList())
+    val me = members.firstOrNull { it.userId == myUserId }
 
     fun syncAndReschedule() {
         scope.launch {
@@ -95,6 +100,13 @@ fun SettingsScreen(app: KidScheduleApp, familyId: String, onBack: () -> Unit) {
             }
             item {
                 TextButton(onClick = { addingType = true }) { Text("添加行为") }
+                Spacer(Modifier.height(8.dp))
+                SectionTitle("我的资料")
+                SettingsRow(
+                    leading = "${me?.avatarEmoji ?: "👤"} ${me?.displayName ?: "未设置昵称"}",
+                    trailing = "编辑",
+                    onClick = { editingProfile = true },
+                )
                 Spacer(Modifier.height(8.dp))
                 SectionTitle("家庭")
                 TextButton(onClick = {
@@ -182,6 +194,31 @@ fun SettingsScreen(app: KidScheduleApp, familyId: String, onBack: () -> Unit) {
             },
         )
     }
+    if (editingProfile) {
+        ProfileDialog(
+            initialEmoji = me?.avatarEmoji ?: "",
+            initialName = me?.displayName ?: "",
+            onDismiss = { editingProfile = false },
+            onSave = { emoji, name ->
+                scope.launch {
+                    // 在线操作(security definer RPC),成功后回写本地缓存
+                    runCatching {
+                        app.familyRepo.updateMyProfile(familyId, name, emoji)
+                        myUserId?.let {
+                            app.database.familyMemberDao().upsert(
+                                FamilyMemberEntity(
+                                    familyId = familyId, userId = it,
+                                    role = me?.role ?: "member",
+                                    displayName = name, avatarEmoji = emoji,
+                                )
+                            )
+                        }
+                    }
+                    editingProfile = false
+                }
+            },
+        )
+    }
     inviteCode?.let { code ->
         Dialog(onDismissRequest = { inviteCode = null }) {
             Card {
@@ -242,6 +279,37 @@ private fun BabyDialog(
                         onClick = { onSave(name.trim(), birthday.trim().ifEmpty { null }) },
                         enabled = name.isNotBlank(),
                     ) { Text("保存") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileDialog(
+    initialEmoji: String,
+    initialName: String,
+    onDismiss: () -> Unit,
+    onSave: (emoji: String?, name: String?) -> Unit,
+) {
+    var emoji by remember { mutableStateOf(initialEmoji) }
+    var name by remember { mutableStateOf(initialName) }
+    Dialog(onDismissRequest = onDismiss) {
+        Card {
+            Column(Modifier.padding(20.dp)) {
+                Text("我的资料", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(emoji, { emoji = it.take(4) }, label = { Text("头像 emoji") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(name, { name = it }, label = { Text("昵称") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = {
+                        onSave(emoji.trim().ifEmpty { null }, name.trim().ifEmpty { null })
+                    }) { Text("保存") }
                 }
             }
         }

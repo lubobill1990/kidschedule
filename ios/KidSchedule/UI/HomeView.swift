@@ -13,6 +13,8 @@ final class HomeModel: ObservableObject {
     @Published var babies: [BabyRow] = []
     @Published var types: [ActivityTypeRow] = []
     @Published var events: [EventRow] = []
+    @Published var members: [FamilyMemberRow] = []
+    @Published var myUserId: String?
     @Published var undo: UndoState?
     @Published var isSyncing = false
 
@@ -33,6 +35,10 @@ final class HomeModel: ObservableObject {
         Dictionary(uniqueKeysWithValues: types.map { ($0.id, $0) })
     }
 
+    var membersById: [String: FamilyMemberRow] {
+        Dictionary(uniqueKeysWithValues: members.map { ($0.userId, $0) })
+    }
+
     var ongoingEvents: [EventRow] {
         events.filter { $0.status == "ongoing" }
     }
@@ -40,8 +46,9 @@ final class HomeModel: ObservableObject {
     func reload(env: AppEnv) async {
         guard let fid = env.familyId else { return }
         let sel = selectedBabyId
+        myUserId = await env.supa.userId
         do {
-            let (babies, types, events): ([BabyRow], [ActivityTypeRow], [EventRow]) =
+            let (babies, types, events, members): ([BabyRow], [ActivityTypeRow], [EventRow], [FamilyMemberRow]) =
                 try await env.db.dbQueue.read { db in
                     let babies = try BabyRow
                         .filter(Column("familyId") == fid && Column("deletedAt") == nil)
@@ -61,11 +68,15 @@ final class HomeModel: ObservableObject {
                             .limit(100)
                             .fetchAll(db)
                     }
-                    return (babies, types, events)
+                    let members = try FamilyMemberRow
+                        .filter(Column("familyId") == fid)
+                        .fetchAll(db)
+                    return (babies, types, events, members)
                 }
             self.babies = babies
             self.types = types
             self.events = events
+            self.members = members
         } catch {
             // 本地读失败不致命,下次刷新重试
         }
@@ -305,6 +316,8 @@ struct HomeView: View {
 
     private func timelineRow(_ event: EventRow) -> some View {
         let type = model.typesById[event.activityTypeId]
+        // 本地新建行 createdBy 为空 → 显示为当前用户(服务端插入时才填)
+        let creator = model.membersById[event.createdBy ?? model.myUserId ?? ""]
         return Button {
             editingEvent = event
         } label: {
@@ -331,6 +344,10 @@ struct HomeView: View {
                     }
                 }
                 Spacer()
+                if let creator {
+                    Text(creator.avatarEmoji ?? String((creator.displayName ?? "👤").prefix(1)))
+                        .font(.body)
+                }
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(TimeFmt.clock(event.startedAt))
                         .font(.subheadline)

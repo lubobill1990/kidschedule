@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
@@ -11,10 +13,11 @@ import androidx.room.RoomDatabase
         ActivityTypeEntity::class,
         EventEntity::class,
         EventAttachmentEntity::class,
+        FamilyMemberEntity::class,
         OutboxItemEntity::class,
         SyncCursorEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -22,12 +25,29 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun activityTypeDao(): ActivityTypeDao
     abstract fun eventDao(): EventDao
     abstract fun eventAttachmentDao(): EventAttachmentDao
+    abstract fun familyMemberDao(): FamilyMemberDao
     abstract fun outboxDao(): OutboxDao
     abstract fun syncCursorDao(): SyncCursorDao
 
     companion object {
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `family_members` (
+                        `familyId` TEXT NOT NULL,
+                        `userId` TEXT NOT NULL,
+                        `role` TEXT NOT NULL,
+                        `displayName` TEXT,
+                        `avatarEmoji` TEXT,
+                        PRIMARY KEY(`familyId`, `userId`)
+                    )"""
+                )
+            }
+        }
+
         fun build(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "kidschedule.db")
+                .addMigrations(MIGRATION_1_2)
                 .build()
     }
 }

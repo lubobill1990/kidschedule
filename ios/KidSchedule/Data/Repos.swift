@@ -301,4 +301,14 @@ final class FamilyRepo {
         let data = try await supa.select("families", query: "select=id,name")
         return try JSONDecoder().decode([FamilyDto].self, from: data)
     }
+
+    func updateMyProfile(familyId: String, displayName: String?, avatarEmoji: String?) async throws {
+        let params: [String: Any] = [
+            "p_family_id": familyId,
+            "p_display_name": displayName ?? NSNull(),
+            "p_avatar_emoji": avatarEmoji ?? NSNull(),
+        ]
+        let body = try JSONSerialization.data(withJSONObject: params)
+        _ = try await supa.rpc("update_my_profile", body: body)
+    }
 }

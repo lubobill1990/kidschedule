@@ -66,7 +66,19 @@ actor SyncEngine {
         }
         for entity in SyncEntity.allCases { try await pushEntity(entity) }
         for entity in SyncEntity.allCases { try await pullEntity(entity) }
+        // 成员资料只读缓存,失败不影响主同步
+        try? await refreshFamilyMembers()
         notifyDbChanged()
+    }
+
+    /// 全量刷新成员缓存(RLS 限定本人家庭)
+    private func refreshFamilyMembers() async throws {
+        let data = try await supa.select("family_members", query: "select=*")
+        let dtos = try Json.decoder.decode([FamilyMemberDto].self, from: data)
+        try await db.dbQueue.write { db in
+            try db.execute(sql: "DELETE FROM family_members")
+            for dto in dtos { try dto.toRow().save(db) }
+        }
     }
 
     // ---- push(协议 §4)----

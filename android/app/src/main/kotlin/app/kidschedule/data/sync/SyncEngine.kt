@@ -12,6 +12,7 @@ import app.kidschedule.data.remote.ActivityTypeDto
 import app.kidschedule.data.remote.BabyDto
 import app.kidschedule.data.remote.EventAttachmentDto
 import app.kidschedule.data.remote.EventDto
+import app.kidschedule.data.remote.FamilyMemberDto
 import app.kidschedule.data.remote.IsoTime
 import app.kidschedule.data.remote.PushResultDto
 import app.kidschedule.data.remote.toDto
@@ -51,7 +52,19 @@ class SyncEngine(
                 db.outboxDao().releaseExpiredHolds(now())
                 for (entity in SyncEntity.entries) pushEntity(entity)
                 for (entity in SyncEntity.entries) pullEntity(entity)
+                // 成员资料只读缓存,失败不影响主同步
+                runCatching { refreshFamilyMembers() }
             }
+        }
+    }
+
+    /** 全量刷新成员缓存(RLS 限定本人家庭) */
+    private suspend fun refreshFamilyMembers() {
+        val members = client.postgrest.from("family_members").select()
+            .decodeList<FamilyMemberDto>()
+        db.withTransaction {
+            db.familyMemberDao().deleteAllBlocking()
+            members.forEach { db.familyMemberDao().upsertBlocking(it.toEntity()) }
         }
     }
 

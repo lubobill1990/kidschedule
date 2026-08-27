@@ -4,6 +4,7 @@ import app.kidschedule.data.local.ActivityTypeEntity
 import app.kidschedule.data.local.BabyEntity
 import app.kidschedule.data.local.EventAttachmentEntity
 import app.kidschedule.data.local.EventEntity
+import app.kidschedule.data.local.FamilyMemberEntity
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.time.Instant
@@ -89,6 +90,20 @@ data class EventAttachmentDto(
     @SerialName("client_updated_at") val clientUpdatedAt: String,
     @SerialName("device_id") val deviceId: String,
     @SerialName("updated_at") val updatedAt: String? = null,
+)
+
+@Serializable
+data class FamilyMemberDto(
+    @SerialName("family_id") val familyId: String,
+    @SerialName("user_id") val userId: String,
+    val role: String,
+    @SerialName("display_name") val displayName: String? = null,
+    @SerialName("avatar_emoji") val avatarEmoji: String? = null,
+)
+
+fun FamilyMemberDto.toEntity() = FamilyMemberEntity(
+    familyId = familyId, userId = userId, role = role,
+    displayName = displayName, avatarEmoji = avatarEmoji,
 )
 
 // ---- Entity -> DTO(push)----

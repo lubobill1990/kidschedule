@@ -91,6 +91,17 @@ final class AppDb {
                 t.column("lastId", .text).notNull()
             }
         }
+        m.registerMigration("v2") { db in
+            // 成员资料只读缓存,每次 sync 全量刷新,不走 outbox
+            try db.create(table: "family_members") { t in
+                t.column("familyId", .text).notNull()
+                t.column("userId", .text).notNull()
+                t.column("role", .text).notNull()
+                t.column("displayName", .text)
+                t.column("avatarEmoji", .text)
+                t.primaryKey(["familyId", "userId"])
+            }
+        }
         return m
     }
 }

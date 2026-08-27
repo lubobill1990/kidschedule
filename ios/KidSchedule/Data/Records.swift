@@ -69,6 +69,16 @@ struct EventAttachmentRow: LwwRecord, Equatable {
     var deviceId: String
 }
 
+// 成员资料只读缓存,每次 sync 全量刷新,不走 outbox
+struct FamilyMemberRow: Codable, FetchableRecord, PersistableRecord, Equatable {
+    static let databaseTableName = "family_members"
+    var familyId: String
+    var userId: String
+    var role: String // owner | member
+    var displayName: String?
+    var avatarEmoji: String?
+}
+
 struct OutboxRow: Codable, FetchableRecord, MutablePersistableRecord {
     static let databaseTableName = "outbox"
     var opId: Int64?
@@ -155,6 +165,23 @@ struct EventAttachmentDto: Codable {
     var clientUpdatedAt: String
     var deviceId: String
     var updatedAt: String?
+}
+
+struct FamilyMemberDto: Codable {
+    var familyId: String
+    var userId: String
+    var role: String
+    var displayName: String?
+    var avatarEmoji: String?
+}
+
+extension FamilyMemberDto {
+    func toRow() -> FamilyMemberRow {
+        FamilyMemberRow(
+            familyId: familyId, userId: userId, role: role,
+            displayName: displayName, avatarEmoji: avatarEmoji
+        )
+    }
 }
 
 // ---- Row -> DTO(push)----

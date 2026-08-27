@@ -177,6 +177,25 @@ interface EventAttachmentDao {
 }
 
 @Dao
+interface FamilyMemberDao {
+    @Query("SELECT * FROM family_members WHERE familyId = :familyId")
+    fun observeAll(familyId: String): Flow<List<FamilyMemberEntity>>
+
+    @Query("SELECT * FROM family_members WHERE familyId = :familyId AND userId = :userId")
+    suspend fun get(familyId: String, userId: String): FamilyMemberEntity?
+
+    @Upsert
+    suspend fun upsert(member: FamilyMemberEntity)
+
+    // 以下阻塞方法仅供同步层在事务内使用
+    @Query("DELETE FROM family_members")
+    fun deleteAllBlocking()
+
+    @Upsert
+    fun upsertBlocking(member: FamilyMemberEntity)
+}
+
+@Dao
 interface OutboxDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(item: OutboxItemEntity): Long

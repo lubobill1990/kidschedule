@@ -1,6 +1,7 @@
 package app.kidschedule.data.repo
 
 import android.content.Context
+import app.kidschedule.data.remote.FamilyMemberDto
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.serialization.Serializable
@@ -48,4 +49,19 @@ class FamilyRepo(private val client: SupabaseClient, context: Context) {
     /** RLS 限定只返回本人所在家庭 */
     suspend fun myFamilies(): List<FamilyDto> =
         client.postgrest.from("families").select().decodeList()
+
+    /** RLS 限定只返回本人所在家庭的成员 */
+    suspend fun fetchMembers(): List<FamilyMemberDto> =
+        client.postgrest.from("family_members").select().decodeList()
+
+    suspend fun updateMyProfile(familyId: String, displayName: String?, avatarEmoji: String?) {
+        client.postgrest.rpc(
+            "update_my_profile",
+            buildJsonObject {
+                put("p_family_id", familyId)
+                put("p_display_name", displayName)
+                put("p_avatar_emoji", avatarEmoji)
+            },
+        )
+    }
 }

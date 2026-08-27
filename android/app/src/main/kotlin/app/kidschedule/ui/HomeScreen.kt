@@ -45,6 +45,7 @@ import app.kidschedule.KidScheduleApp
 import app.kidschedule.core.Protocol
 import app.kidschedule.data.local.ActivityTypeEntity
 import app.kidschedule.data.local.EventEntity
+import app.kidschedule.data.local.FamilyMemberEntity
 import app.kidschedule.data.sync.syncWithRetry
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -168,7 +169,7 @@ fun HomeScreen(app: KidScheduleApp, familyId: String) {
                     Text("最近记录", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                     TextButton(onClick = { showBackfill = true }) { Text("补录") }
                 }
-                Timeline(app, babyId, types, now, onEventClick = { detailEvent = it }, modifier = Modifier.weight(1f))
+                Timeline(app, familyId, babyId, types, now, onEventClick = { detailEvent = it }, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -254,6 +255,7 @@ private fun TypeCard(
 @Composable
 private fun Timeline(
     app: KidScheduleApp,
+    familyId: String,
     babyId: String,
     types: List<ActivityTypeEntity>,
     now: Long,
@@ -261,7 +263,10 @@ private fun Timeline(
     modifier: Modifier = Modifier,
 ) {
     val events by app.database.eventDao().observeTimeline(babyId, 50).collectAsState(initial = emptyList())
+    val members by app.database.familyMemberDao().observeAll(familyId).collectAsState(initial = emptyList())
     val typeById = remember(types) { types.associateBy { it.id } }
+    val memberById = remember(members) { members.associateBy { it.userId } }
+    val myUserId = remember { app.authRepo.currentUserId() }
     val listState = rememberLazyListState()
     // 有 key 的 LazyColumn 会锚定旧首项;贴近顶部时新记录到来应自动滚回顶部
     LaunchedEffect(events.firstOrNull()?.id) {
@@ -284,14 +289,22 @@ private fun Timeline(
                 )
             }
             items(dayEvents, key = { it.id }) { e ->
-                TimelineRow(e, typeById[e.activityTypeId], now, onClick = { onEventClick(e) })
+                // 本地新建行 createdBy 为空 → 显示为当前用户(服务端插入时才填)
+                val creator = memberById[e.createdBy ?: myUserId]
+                TimelineRow(e, typeById[e.activityTypeId], creator, now, onClick = { onEventClick(e) })
             }
         }
     }
 }
 
 @Composable
-private fun TimelineRow(e: EventEntity, type: ActivityTypeEntity?, now: Long, onClick: () -> Unit) {
+private fun TimelineRow(
+    e: EventEntity,
+    type: ActivityTypeEntity?,
+    creator: FamilyMemberEntity?,
+    now: Long,
+    onClick: () -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -316,5 +329,12 @@ private fun TimelineRow(e: EventEntity, type: ActivityTypeEntity?, now: Long, on
             Text(timeText, style = MaterialTheme.typography.bodySmall)
         }
         e.note?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        creator?.let {
+            Spacer(Modifier.width(8.dp))
+            Text(
+                it.avatarEmoji ?: it.displayName?.take(1) ?: "👤",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
     }
 }
