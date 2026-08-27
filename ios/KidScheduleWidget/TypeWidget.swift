@@ -260,7 +260,7 @@ struct TypeProvider: AppIntentTimelineProvider {
                 babyId: baby.id,
                 babyName: baby.name,
                 ongoingStart: last?.status == "ongoing" ? last?.startedAt : nil,
-                last: last?.startedAt,
+                last: last.map { $0.endedAt ?? $0.startedAt },
                 todayCount: todayCount,
                 undo: undo?.typeId == type.id ? undo : nil
             )
@@ -277,7 +277,14 @@ struct SingleTypeWidget: Widget {
             provider: TypeProvider()
         ) { entry in
             SingleTypeView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(for: .widget) {
+                    if let hex = entry.type?.color {
+                        // 按行为颜色打底,一眼区分不同 widget
+                        widgetColor(hex).opacity(0.2)
+                    } else {
+                        Color.clear.background(.fill.tertiary)
+                    }
+                }
         }
         .configurationDisplayName("单行为记录")
         .description("绑定一个行为:一键开始/结束,显示上次时间与今日次数。")
@@ -340,7 +347,7 @@ struct SingleTypeView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(widgetColor(type.color))
             }
-            Text(summary)
+            summaryText
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -354,19 +361,19 @@ struct SingleTypeView: View {
         return entry.ongoingStart != nil ? "结束" : "开始"
     }
 
-    private var summary: String {
-        var line: String
+    private var summaryText: Text {
         if let start = entry.ongoingStart {
-            line = "进行中 · \(formatMillis(start)) 开始"
-        } else if let last = entry.last {
-            line = "上次 \(formatMillis(last))"
-        } else {
-            line = "还没有记录"
+            // 实时走秒的已进行时长
+            return Text("进行中 ")
+                + Text(Date(timeIntervalSince1970: Double(start) / 1000), style: .timer)
+                + Text(todaySuffix)
         }
-        if entry.todayCount > 0 {
-            line += " · 今天 \(entry.todayCount) 次"
-        }
-        return line
+        let line = entry.last.map { "上次 \(formatMillis($0))" } ?? "还没有记录"
+        return Text(line + todaySuffix)
+    }
+
+    private var todaySuffix: String {
+        entry.todayCount > 0 ? " · 今天 \(entry.todayCount) 次" : ""
     }
 
     private func formatMillis(_ millis: Int64) -> String {

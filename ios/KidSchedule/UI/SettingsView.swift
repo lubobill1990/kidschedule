@@ -11,6 +11,10 @@ struct SettingsView: View {
     @State private var error: String?
     @State private var showAddBaby = false
     @State private var newBabyName = ""
+    @State private var editingBaby: BabyRow?
+    @State private var showEditBaby = false
+    @State private var editBabyName = ""
+    @State private var editBabyBirthday = ""
     @State private var showAddType = false
     @State private var editingType: ActivityTypeRow?
     @State private var showEditProfile = false
@@ -56,7 +60,20 @@ struct SettingsView: View {
                 }
                 Section("宝宝") {
                     ForEach(model.babies) { baby in
-                        LabeledContent(baby.name, value: baby.birthday ?? "")
+                        Button {
+                            editingBaby = baby
+                            editBabyName = baby.name
+                            editBabyBirthday = baby.birthday ?? ""
+                            showEditBaby = true
+                        } label: {
+                            HStack {
+                                Text(baby.name).foregroundStyle(.primary)
+                                Spacer()
+                                Text(baby.birthday ?? "")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                     }
                     Button("添加宝宝") { showAddBaby = true }
                 }
@@ -100,6 +117,12 @@ struct SettingsView: View {
             .alert("添加宝宝", isPresented: $showAddBaby) {
                 TextField("宝宝名字", text: $newBabyName)
                 Button("添加") { addBaby() }
+                Button("取消", role: .cancel) {}
+            }
+            .alert("编辑宝宝", isPresented: $showEditBaby) {
+                TextField("名字", text: $editBabyName)
+                TextField("生日(2026-01-31,可空)", text: $editBabyBirthday)
+                Button("保存") { saveBaby() }
                 Button("取消", role: .cancel) {}
             }
             .alert("编辑资料", isPresented: $showEditProfile) {
@@ -189,6 +212,20 @@ struct SettingsView: View {
         }
     }
 
+    private func saveBaby() {
+        guard var b = editingBaby else { return }
+        editingBaby = nil
+        let name = editBabyName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        let birthday = editBabyBirthday.trimmingCharacters(in: .whitespaces)
+        b.name = name
+        b.birthday = birthday.isEmpty ? nil : birthday
+        Task {
+            try? await env.catalogRepo.updateBaby(b)
+            await model.sync(env: env)
+        }
+    }
+
     private func addBaby() {
         guard let fid = env.familyId else { return }
         let name = newBabyName.trimmingCharacters(in: .whitespaces)
@@ -199,6 +236,21 @@ struct SettingsView: View {
             await model.sync(env: env)
         }
     }
+}
+
+// 与 Android 端共用同一套预设色板
+private let typeColors = [
+    "#5B8DEF", "#63C5DA", "#7BC47F", "#F4B860",
+    "#E88B8B", "#8E7CC3", "#F49AC1", "#A9836F",
+]
+
+private func paletteColor(_ hex: String) -> Color {
+    guard let v = UInt32(hex.dropFirst(), radix: 16) else { return .gray }
+    return Color(
+        red: Double((v >> 16) & 0xFF) / 255.0,
+        green: Double((v >> 8) & 0xFF) / 255.0,
+        blue: Double(v & 0xFF) / 255.0
+    )
 }
 
 private struct TypeEditView: View {
@@ -218,6 +270,7 @@ private struct TypeEditView: View {
     @State private var reminderMode: String
     @State private var reminderIntervalMin: String
     @State private var babyId: String?
+    @State private var color: String?
     @State private var busy = false
     @State private var confirmDelete = false
     @State private var error: String?
@@ -238,6 +291,7 @@ private struct TypeEditView: View {
         _reminderMode = State(initialValue: initial?.reminderMode ?? "off")
         _reminderIntervalMin = State(initialValue: initial?.reminderFixedIntervalSec.map { String($0 / 60) } ?? "")
         _babyId = State(initialValue: initial?.babyId)
+        _color = State(initialValue: initial?.color)
     }
 
     private var intervalValid: Bool {
@@ -262,6 +316,21 @@ private struct TypeEditView: View {
                     if kind == "duration" {
                         TextField("最长时长(分钟,超时自动结束)", text: $maxDurationMin)
                             .keyboardType(.numberPad)
+                    }
+                }
+                Section("颜色(widget 底色)") {
+                    HStack(spacing: 10) {
+                        ForEach(typeColors, id: \.self) { hex in
+                            Circle()
+                                .fill(paletteColor(hex))
+                                .frame(width: 28, height: 28)
+                                .overlay {
+                                    if color == hex {
+                                        Circle().strokeBorder(.primary, lineWidth: 2.5)
+                                    }
+                                }
+                                .onTapGesture { color = color == hex ? nil : hex }
+                        }
                     }
                 }
                 if babies.count > 1 {
@@ -328,6 +397,7 @@ private struct TypeEditView: View {
                 if var t = initial {
                     t.name = trimmedName
                     t.icon = iconV.isEmpty ? nil : iconV
+                    t.color = color
                     t.defaultMaxDurationSec = kind == "duration" ? maxSec : nil
                     t.reminderMode = reminderMode
                     t.reminderFixedIntervalSec = intervalSec
@@ -336,7 +406,7 @@ private struct TypeEditView: View {
                 } else {
                     try await env.catalogRepo.addActivityType(
                         familyId: familyId, name: trimmedName,
-                        icon: iconV.isEmpty ? nil : iconV, color: nil, kind: kind,
+                        icon: iconV.isEmpty ? nil : iconV, color: color, kind: kind,
                         defaultMaxDurationSec: kind == "duration" ? maxSec : nil,
                         reminderMode: reminderMode, reminderFixedIntervalSec: intervalSec,
                         sortOrder: sortOrderForNew, babyId: babyId
