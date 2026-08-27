@@ -273,6 +273,12 @@ struct HomeView: View {
         .padding(.top, 8)
     }
 
+    /// 按天分组(倒序),日期做 sticky section header
+    private var eventsByDay: [(day: Int64, events: [EventRow])] {
+        let grouped = Dictionary(grouping: model.events) { TimeFmt.startOfDay($0.startedAt) }
+        return grouped.keys.sorted(by: >).map { (day: $0, events: grouped[$0]!) }
+    }
+
     private var timeline: some View {
         List {
             if model.events.isEmpty {
@@ -282,54 +288,66 @@ struct HomeView: View {
                     .listRowSeparator(.hidden)
                     .padding(.top, 40)
             }
-            ForEach(model.events) { event in
-                let type = model.typesById[event.activityTypeId]
-                Button {
-                    editingEvent = event
-                } label: {
-                    HStack(spacing: 10) {
-                        Text(type?.icon ?? "•")
-                            .font(.title3)
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 6) {
-                                Text(type?.name ?? "未知")
-                                    .font(.body)
-                                if event.autoEnded {
-                                    Text("自动结束")
-                                        .font(.caption2)
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 1)
-                                        .background(Capsule().fill(Color.orange.opacity(0.2)))
-                                }
-                            }
-                            if let note = event.note, !note.isEmpty {
-                                Text(note)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                        }
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text(TimeFmt.eventTime(event.startedAt))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            if event.status == "ongoing" {
-                                Text("进行中")
-                                    .font(.caption)
-                                    .foregroundStyle(.tint)
-                            } else if let ended = event.endedAt, ended > event.startedAt {
-                                Text(TimeFmt.duration((ended - event.startedAt) / 1000))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+            ForEach(eventsByDay, id: \.day) { group in
+                Section {
+                    ForEach(group.events) { event in
+                        timelineRow(event)
                     }
+                } header: {
+                    Text(TimeFmt.dayLabel(group.day))
+                        .font(.footnote.bold())
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
             }
         }
         .listStyle(.plain)
+    }
+
+    private func timelineRow(_ event: EventRow) -> some View {
+        let type = model.typesById[event.activityTypeId]
+        return Button {
+            editingEvent = event
+        } label: {
+            HStack(spacing: 10) {
+                Text(type?.icon ?? "•")
+                    .font(.title3)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(type?.name ?? "未知")
+                            .font(.body)
+                        if event.autoEnded {
+                            Text("自动结束")
+                                .font(.caption2)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(Capsule().fill(Color.orange.opacity(0.2)))
+                        }
+                    }
+                    if let note = event.note, !note.isEmpty {
+                        Text(note)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(TimeFmt.clock(event.startedAt))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    if event.status == "ongoing" {
+                        Text("进行中")
+                            .font(.caption)
+                            .foregroundStyle(.tint)
+                    } else if let ended = event.endedAt, ended > event.startedAt {
+                        Text(TimeFmt.duration((ended - event.startedAt) / 1000))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private var undoBar: some View {

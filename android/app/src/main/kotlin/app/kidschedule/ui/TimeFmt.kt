@@ -1,18 +1,37 @@
 package app.kidschedule.ui
 
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 object TimeFmt {
     private val hm = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
     private val mdhm = DateTimeFormatter.ofPattern("M月d日 HH:mm").withZone(ZoneId.systemDefault())
+    private val mdWeek = DateTimeFormatter.ofPattern("M月d日 EEE", Locale.CHINA)
     private val edit = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
     fun clock(millis: Long): String = hm.format(Instant.ofEpochMilli(millis))
 
     fun dateClock(millis: Long): String = mdhm.format(Instant.ofEpochMilli(millis))
+
+    /** 当天零点毫秒,用于按天分组 */
+    fun startOfDay(millis: Long): Long =
+        Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+            .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+    /** 时间线分组标题:今天 / 昨天 / M月d日 周几 */
+    fun dayLabel(dayStartMillis: Long): String {
+        val date = Instant.ofEpochMilli(dayStartMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+        val today = LocalDate.now()
+        return when (date) {
+            today -> "今天"
+            today.minusDays(1) -> "昨天"
+            else -> mdWeek.format(date)
+        }
+    }
 
     /** “3分钟前 / 2小时前 / 昨天 14:30” */
     fun relative(millis: Long, now: Long): String {

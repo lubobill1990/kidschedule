@@ -29,6 +29,31 @@ enum TimeFmt {
         return monthDayTime.string(from: d)
     }
 
+    private static let monthDay: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "M月d日 EEE"
+        f.locale = Locale(identifier: "zh_CN")
+        return f
+    }()
+
+    /// 时间线分组标题:今天 / 昨天 / M月d日 周几
+    static func dayLabel(_ millis: Int64) -> String {
+        let d = date(millis)
+        if Calendar.current.isDateInToday(d) { return "今天" }
+        if Calendar.current.isDateInYesterday(d) { return "昨天" }
+        return monthDay.string(from: d)
+    }
+
+    /// 只显示 HH:mm
+    static func clock(_ millis: Int64) -> String {
+        timeOnly.string(from: date(millis))
+    }
+
+    /// 当天零点毫秒,用于按天分组
+    static func startOfDay(_ millis: Int64) -> Int64 {
+        Self.millis(Calendar.current.startOfDay(for: date(millis)))
+    }
+
     /// 相对时间:刚刚 / N分钟前 / N小时前 / N天前
     static func relative(_ millis: Int64, now: Int64 = nowEpochMillis()) -> String {
         let sec = max(0, (now - millis) / 1000)

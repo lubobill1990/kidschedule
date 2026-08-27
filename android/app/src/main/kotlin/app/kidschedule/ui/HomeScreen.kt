@@ -1,5 +1,7 @@
 package app.kidschedule.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -248,6 +250,7 @@ private fun TypeCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Timeline(
     app: KidScheduleApp,
@@ -264,9 +267,25 @@ private fun Timeline(
     LaunchedEffect(events.firstOrNull()?.id) {
         if (listState.firstVisibleItemIndex <= 1) listState.animateScrollToItem(0)
     }
+    val groups = remember(events) {
+        events.groupBy { TimeFmt.startOfDay(it.startedAt) }.entries.sortedByDescending { it.key }
+    }
     LazyColumn(state = listState, modifier = modifier) {
-        items(events, key = { it.id }) { e ->
-            TimelineRow(e, typeById[e.activityTypeId], now, onClick = { onEventClick(e) })
+        groups.forEach { (day, dayEvents) ->
+            stickyHeader(key = "day-$day") {
+                Text(
+                    TimeFmt.dayLabel(day),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(vertical = 4.dp),
+                )
+            }
+            items(dayEvents, key = { it.id }) { e ->
+                TimelineRow(e, typeById[e.activityTypeId], now, onClick = { onEventClick(e) })
+            }
         }
     }
 }
@@ -289,10 +308,10 @@ private fun TimelineRow(e: EventEntity, type: ActivityTypeEntity?, now: Long, on
                 }
             }
             val timeText = when {
-                e.status == "ongoing" -> "${TimeFmt.dateClock(e.startedAt)} 起,进行中 ${TimeFmt.elapsed(e.startedAt, now)}"
+                e.status == "ongoing" -> "${TimeFmt.clock(e.startedAt)} 起,进行中 ${TimeFmt.elapsed(e.startedAt, now)}"
                 e.endedAt != null && e.endedAt != e.startedAt ->
-                    "${TimeFmt.dateClock(e.startedAt)} - ${TimeFmt.clock(e.endedAt)}"
-                else -> TimeFmt.dateClock(e.startedAt)
+                    "${TimeFmt.clock(e.startedAt)} - ${TimeFmt.clock(e.endedAt)}"
+                else -> TimeFmt.clock(e.startedAt)
             }
             Text(timeText, style = MaterialTheme.typography.bodySmall)
         }
