@@ -66,8 +66,9 @@ struct BackfillView: View {
                 endedAt: hasEnded ? TimeFmt.millis(endedAt) : nil,
                 note: trimmed.isEmpty ? nil : trimmed
             )
-            await model.sync(env: env)
+            await model.reload(env: env)
             dismiss()
+            await model.sync(env: env)
         }
     }
 }

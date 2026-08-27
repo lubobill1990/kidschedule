@@ -121,7 +121,8 @@ final class HomeModel: ObservableObject {
     func endOngoing(env: AppEnv, eventId: String) async {
         try? await env.recordRepo.endDuration(eventId: eventId)
         await reload(env: env)
-        await sync(env: env)
+        // 本地已落库,UI 不等网络;同步转后台
+        Task { await sync(env: env) }
     }
 
     /// 撤销窗口到期后释放 held 并上行

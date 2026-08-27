@@ -90,8 +90,9 @@ struct EventDetailView: View {
                 Button("删除", role: .destructive) {
                     Task {
                         try? await env.recordRepo.softDelete(eventId: original.id)
-                        await model.sync(env: env)
+                        await model.reload(env: env)
                         dismiss()
+                        await model.sync(env: env)
                     }
                 }
             }
@@ -109,9 +110,11 @@ struct EventDetailView: View {
         let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
         e.note = trimmed.isEmpty ? nil : trimmed
         Task {
+            // 离线优先:本地落库即完成,立刻关闭;同步放后台
             try? await env.recordRepo.update(event: e)
-            await model.sync(env: env)
+            await model.reload(env: env)
             dismiss()
+            await model.sync(env: env)
         }
     }
 }

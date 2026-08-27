@@ -135,13 +135,13 @@ struct SettingsView: View {
                 TypeEditView(
                     familyId: env.familyId ?? "", babies: model.babies,
                     initial: nil, sortOrderForNew: model.types.count
-                ) { Task { await model.sync(env: env) } }
+                ) { Task { await model.reload(env: env); await model.sync(env: env) } }
             }
             .sheet(item: $editingType) { t in
                 TypeEditView(
                     familyId: env.familyId ?? "", babies: model.babies,
                     initial: t, sortOrderForNew: model.types.count
-                ) { Task { await model.sync(env: env) } }
+                ) { Task { await model.reload(env: env); await model.sync(env: env) } }
             }
         }
     }
@@ -222,6 +222,7 @@ struct SettingsView: View {
         b.birthday = birthday.isEmpty ? nil : birthday
         Task {
             try? await env.catalogRepo.updateBaby(b)
+            await model.reload(env: env)
             await model.sync(env: env)
         }
     }
@@ -233,6 +234,7 @@ struct SettingsView: View {
         guard !name.isEmpty else { return }
         Task {
             try? await env.catalogRepo.addBaby(familyId: fid, name: name, birthday: nil)
+            await model.reload(env: env)
             await model.sync(env: env)
         }
     }
