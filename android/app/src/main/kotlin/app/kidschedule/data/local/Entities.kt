@@ -23,6 +23,7 @@ data class BabyEntity(
 data class ActivityTypeEntity(
     @PrimaryKey val id: String,
     val familyId: String,
+    val babyId: String?, // 空 = 所有宝宝通用
     val name: String,
     val icon: String?,
     val color: String?,

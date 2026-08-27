@@ -123,7 +123,7 @@ fun StatsScreen(app: KidScheduleApp, familyId: String, babyId: String, onBack: (
                         onClick = { filterTypeId = null },
                         label = { Text("全部") },
                     )
-                    types.forEach { t ->
+                    types.filter { it.babyId == null || it.babyId == babyId }.forEach { t ->
                         FilterChip(
                             selected = filterTypeId == t.id,
                             onClick = { filterTypeId = t.id },

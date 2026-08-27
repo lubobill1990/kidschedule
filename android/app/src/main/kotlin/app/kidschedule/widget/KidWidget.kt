@@ -61,11 +61,13 @@ class KidWidget : GlanceAppWidget() {
                 .collectAsState(initial = emptyList())
             val ongoing by remember { app.database.eventDao().observeOngoing() }
                 .collectAsState(initial = emptyList())
-            val types = typeEntities.map { t ->
-                val isOngoing = t.kind == "duration" &&
-                    ongoing.any { it.babyId == baby?.id && it.activityTypeId == t.id }
-                TypeUi(t.id, t.name, t.icon ?: "", isOngoing)
-            }
+            val types = typeEntities
+                .filter { it.babyId == null || it.babyId == baby?.id }
+                .map { t ->
+                    val isOngoing = t.kind == "duration" &&
+                        ongoing.any { it.babyId == baby?.id && it.activityTypeId == t.id }
+                    TypeUi(t.id, t.name, t.icon ?: "", isOngoing)
+                }
             GlanceTheme {
                 Content(baby?.name, types)
             }

@@ -17,7 +17,7 @@ struct BackfillView: View {
             Form {
                 Section("行为") {
                     Picker("类型", selection: $typeId) {
-                        ForEach(model.types) { type in
+                        ForEach(model.visibleTypes) { type in
                             Text("\(type.icon ?? "") \(type.name)").tag(type.id as String?)
                         }
                     }
@@ -46,13 +46,13 @@ struct BackfillView: View {
                 }
             }
             .onAppear {
-                if typeId == nil { typeId = model.types.first?.id }
+                if typeId == nil { typeId = model.visibleTypes.first?.id }
             }
         }
     }
 
     private var resolvedTypeId: String? {
-        typeId ?? model.types.first?.id
+        typeId ?? model.visibleTypes.first?.id
     }
 
     private func save() {

@@ -89,6 +89,9 @@ fun SettingsScreen(app: KidScheduleApp, familyId: String, onBack: () -> Unit) {
                 SettingsRow(
                     leading = "${t.icon ?: ""} ${t.name}",
                     trailing = buildString {
+                        t.babyId?.let { bid ->
+                            babies.firstOrNull { it.id == bid }?.let { append("${it.name} · ") }
+                        }
                         append(if (t.kind == "duration") "持续" else "瞬时")
                         when (t.reminderMode) {
                             "auto" -> append(" · 智能提醒")
@@ -151,13 +154,14 @@ fun SettingsScreen(app: KidScheduleApp, familyId: String, onBack: () -> Unit) {
     if (addingType) {
         TypeDialog(
             title = "添加行为",
+            babies = babies,
             onDismiss = { addingType = false },
             onSave = { form ->
                 scope.launch {
                     app.catalogRepo.addActivityType(
                         familyId, form.name, form.icon.ifBlank { null }, null, form.kind,
                         form.maxDurationSec, form.reminderMode, form.reminderIntervalSec,
-                        sortOrder = types.size,
+                        sortOrder = types.size, babyId = form.babyId,
                     )
                     addingType = false
                     syncAndReschedule()
@@ -168,6 +172,7 @@ fun SettingsScreen(app: KidScheduleApp, familyId: String, onBack: () -> Unit) {
     editType?.let { type ->
         TypeDialog(
             title = "编辑行为",
+            babies = babies,
             initial = type,
             onDismiss = { editType = null },
             onSave = { form ->
@@ -179,6 +184,7 @@ fun SettingsScreen(app: KidScheduleApp, familyId: String, onBack: () -> Unit) {
                             defaultMaxDurationSec = form.maxDurationSec,
                             reminderMode = form.reminderMode,
                             reminderFixedIntervalSec = form.reminderIntervalSec,
+                            babyId = form.babyId,
                         )
                     )
                     editType = null
@@ -323,11 +329,13 @@ private data class TypeForm(
     val maxDurationSec: Long?,
     val reminderMode: String,
     val reminderIntervalSec: Long?,
+    val babyId: String?,
 )
 
 @Composable
 private fun TypeDialog(
     title: String,
+    babies: List<BabyEntity>,
     initial: ActivityTypeEntity? = null,
     onDismiss: () -> Unit,
     onSave: (TypeForm) -> Unit,
@@ -336,6 +344,7 @@ private fun TypeDialog(
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var icon by remember { mutableStateOf(initial?.icon ?: "") }
     var kind by remember { mutableStateOf(initial?.kind ?: "instant") }
+    var babyId by remember { mutableStateOf(initial?.babyId) }
     var maxDurationMin by remember {
         mutableStateOf(initial?.defaultMaxDurationSec?.let { (it / 60).toString() } ?: "")
     }
@@ -371,6 +380,19 @@ private fun TypeDialog(
                     OutlinedTextField(maxDurationMin, { maxDurationMin = it.filter(Char::isDigit) },
                         label = { Text("最长时长(分钟,超时自动结束)") },
                         singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                }
+                if (babies.size > 1) {
+                    Text("适用宝宝", style = MaterialTheme.typography.labelMedium)
+                    Spacer(Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = babyId == null, onClick = { babyId = null },
+                            label = { Text("通用") })
+                        babies.forEach { b ->
+                            FilterChip(selected = babyId == b.id, onClick = { babyId = b.id },
+                                label = { Text(b.name) })
+                        }
+                    }
                     Spacer(Modifier.height(8.dp))
                 }
                 Text("提醒", style = MaterialTheme.typography.labelMedium)
@@ -417,6 +439,7 @@ private fun TypeDialog(
                                     reminderIntervalSec = if (reminderMode == "fixed") {
                                         reminderIntervalMin.toLongOrNull()?.times(60)
                                     } else null,
+                                    babyId = babyId,
                                 )
                             )
                         },

@@ -204,14 +204,14 @@ final class CatalogRepo {
     func addActivityType(
         familyId: String, name: String, icon: String?, color: String?, kind: String,
         defaultMaxDurationSec: Int64? = nil, reminderMode: String = "off",
-        reminderFixedIntervalSec: Int64? = nil, sortOrder: Int = 0
+        reminderFixedIntervalSec: Int64? = nil, sortOrder: Int = 0, babyId: String? = nil
     ) async throws -> String {
         let id = UUID().uuidString.lowercased()
         let t = now()
         let deviceId = deviceId
         try await db.dbQueue.write { db in
             try ActivityTypeRow(
-                id: id, familyId: familyId, name: name, icon: icon, color: color,
+                id: id, familyId: familyId, babyId: babyId, name: name, icon: icon, color: color,
                 kind: kind, defaultMaxDurationSec: defaultMaxDurationSec,
                 reminderMode: reminderMode, reminderFixedIntervalSec: reminderFixedIntervalSec,
                 sortOrder: sortOrder, deletedAt: nil, clientUpdatedAt: t, deviceId: deviceId

@@ -194,7 +194,7 @@ struct StatsView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     filterChip(nil, label: "全部")
-                    ForEach(model.types) { t in
+                    ForEach(model.visibleTypes) { t in
                         filterChip(t.id, label: "\(t.icon ?? "")\(t.name)")
                     }
                 }

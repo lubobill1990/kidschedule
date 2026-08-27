@@ -66,9 +66,17 @@ struct QuickProvider: TimelineProvider {
                 try outboxEngine(entity, db: dbc, now: { t }).releaseExpiredHolds(nowMillis: t)
             }
         }
+        // 与 QuickRecordIntent 一致:记录目标是选中宝宝(失效回退第一个),类型按其过滤
+        let selected = AppGroup.defaults.string(forKey: "selected_baby_id")
         let types: [ActivityTypeRow] = (try? db.dbQueue.read { dbc in
-            try ActivityTypeRow
+            let babies = try BabyRow
                 .filter(Column("familyId") == familyId && Column("deletedAt") == nil)
+                .order(Column("name"))
+                .fetchAll(dbc)
+            let babyId = babies.first { $0.id == selected }?.id ?? babies.first?.id
+            return try ActivityTypeRow
+                .filter(Column("familyId") == familyId && Column("deletedAt") == nil)
+                .filter(Column("babyId") == nil || Column("babyId") == babyId)
                 .order(Column("sortOrder"), Column("name"))
                 .limit(8)
                 .fetchAll(dbc)

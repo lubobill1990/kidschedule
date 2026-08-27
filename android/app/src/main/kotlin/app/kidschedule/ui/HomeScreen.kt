@@ -64,6 +64,10 @@ fun HomeScreen(app: KidScheduleApp, familyId: String) {
     var undo by remember { mutableStateOf<UndoUi?>(null) }
     var showStats by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    // 记录按钮只展示通用 + 当前宝宝专属的类型;timeline 名称映射仍用全量
+    val visibleTypes = remember(types, babyId) {
+        types.filter { it.babyId == null || it.babyId == babyId }
+    }
     var detailEvent by remember { mutableStateOf<EventEntity?>(null) }
     var showBackfill by rememberSaveable { mutableStateOf(false) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -160,7 +164,7 @@ fun HomeScreen(app: KidScheduleApp, familyId: String) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.weight(1f),
                 ) {
-                    items(types, key = { it.id }) { type ->
+                    items(visibleTypes, key = { it.id }) { type ->
                         TypeCard(app, familyId, babyId, type, now, ::onQuickRecorded, onEnded = { requestSync() })
                     }
                 }
@@ -176,7 +180,7 @@ fun HomeScreen(app: KidScheduleApp, familyId: String) {
 
     if (showBackfill && babyId != null) {
         BackfillDialog(
-            app, familyId, babyId, types,
+            app, familyId, babyId, visibleTypes,
             onDismiss = { showBackfill = false },
             onSaved = { showBackfill = false; requestSync() },
         )

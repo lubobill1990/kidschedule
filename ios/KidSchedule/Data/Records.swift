@@ -26,6 +26,7 @@ struct ActivityTypeRow: LwwRecord, Equatable {
     static let databaseTableName = "activity_types"
     var id: String
     var familyId: String
+    var babyId: String? // 空 = 所有宝宝通用
     var name: String
     var icon: String?
     var color: String?
@@ -124,6 +125,7 @@ struct BabyDto: Codable {
 struct ActivityTypeDto: Codable {
     var id: String
     var familyId: String
+    var babyId: String?
     var name: String
     var icon: String?
     var color: String?
@@ -199,7 +201,7 @@ extension BabyRow {
 extension ActivityTypeRow {
     func toDto() -> ActivityTypeDto {
         ActivityTypeDto(
-            id: id, familyId: familyId, name: name, icon: icon, color: color, kind: kind,
+            id: id, familyId: familyId, babyId: babyId, name: name, icon: icon, color: color, kind: kind,
             defaultMaxDurationSec: defaultMaxDurationSec, reminderMode: reminderMode,
             reminderFixedIntervalSec: reminderFixedIntervalSec, sortOrder: sortOrder,
             deletedAt: deletedAt.map(IsoTime.toIso),
@@ -247,7 +249,7 @@ extension BabyDto {
 extension ActivityTypeDto {
     func toRow() -> ActivityTypeRow {
         ActivityTypeRow(
-            id: id, familyId: familyId, name: name, icon: icon, color: color, kind: kind,
+            id: id, familyId: familyId, babyId: babyId, name: name, icon: icon, color: color, kind: kind,
             defaultMaxDurationSec: defaultMaxDurationSec, reminderMode: reminderMode,
             reminderFixedIntervalSec: reminderFixedIntervalSec, sortOrder: sortOrder,
             deletedAt: deletedAt.map(IsoTime.toMillis),

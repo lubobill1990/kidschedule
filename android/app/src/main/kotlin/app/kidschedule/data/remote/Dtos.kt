@@ -47,6 +47,7 @@ data class BabyDto(
 data class ActivityTypeDto(
     val id: String,
     @SerialName("family_id") val familyId: String,
+    @SerialName("baby_id") val babyId: String? = null,
     val name: String,
     val icon: String? = null,
     val color: String? = null,
@@ -115,7 +116,7 @@ fun BabyEntity.toDto() = BabyDto(
 )
 
 fun ActivityTypeEntity.toDto() = ActivityTypeDto(
-    id = id, familyId = familyId, name = name, icon = icon, color = color, kind = kind,
+    id = id, familyId = familyId, babyId = babyId, name = name, icon = icon, color = color, kind = kind,
     defaultMaxDurationSec = defaultMaxDurationSec, reminderMode = reminderMode,
     reminderFixedIntervalSec = reminderFixedIntervalSec, sortOrder = sortOrder,
     deletedAt = deletedAt?.let(IsoTime::toIso),
@@ -146,7 +147,7 @@ fun BabyDto.toEntity() = BabyEntity(
 )
 
 fun ActivityTypeDto.toEntity() = ActivityTypeEntity(
-    id = id, familyId = familyId, name = name, icon = icon, color = color, kind = kind,
+    id = id, familyId = familyId, babyId = babyId, name = name, icon = icon, color = color, kind = kind,
     defaultMaxDurationSec = defaultMaxDurationSec, reminderMode = reminderMode,
     reminderFixedIntervalSec = reminderFixedIntervalSec, sortOrder = sortOrder,
     deletedAt = deletedAt?.let(IsoTime::toMillis),

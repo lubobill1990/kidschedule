@@ -102,6 +102,12 @@ final class AppDb {
                 t.primaryKey(["familyId", "userId"])
             }
         }
+        m.registerMigration("v3") { db in
+            // 行为类型按宝宝区分:空 = 所有宝宝通用
+            try db.alter(table: "activity_types") { t in
+                t.add(column: "babyId", .text)
+            }
+        }
         return m
     }
 }

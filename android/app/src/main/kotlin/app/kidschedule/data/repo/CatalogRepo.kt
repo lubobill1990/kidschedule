@@ -54,13 +54,14 @@ class CatalogRepo(
         reminderMode: String = "off",
         reminderFixedIntervalSec: Long? = null,
         sortOrder: Int = 0,
+        babyId: String? = null,
     ): String = withContext(Dispatchers.IO) {
         val id = UUID.randomUUID().toString()
         val t = now()
         db.withTransaction {
             db.activityTypeDao().upsertBlocking(
                 ActivityTypeEntity(
-                    id = id, familyId = familyId, name = name, icon = icon, color = color,
+                    id = id, familyId = familyId, babyId = babyId, name = name, icon = icon, color = color,
                     kind = kind, defaultMaxDurationSec = defaultMaxDurationSec,
                     reminderMode = reminderMode, reminderFixedIntervalSec = reminderFixedIntervalSec,
                     sortOrder = sortOrder, deletedAt = null, clientUpdatedAt = t, deviceId = deviceId,

@@ -35,6 +35,11 @@ final class HomeModel: ObservableObject {
         Dictionary(uniqueKeysWithValues: types.map { ($0.id, $0) })
     }
 
+    /// 通用 + 当前宝宝专属的类型(记录按钮/筛选用;名称映射仍用全量 typesById)
+    var visibleTypes: [ActivityTypeRow] {
+        types.filter { $0.babyId == nil || $0.babyId == selectedBaby?.id }
+    }
+
     var membersById: [String: FamilyMemberRow] {
         Dictionary(uniqueKeysWithValues: members.map { ($0.userId, $0) })
     }
@@ -232,7 +237,7 @@ struct HomeView: View {
 
     private var recordButtons: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 12)], spacing: 12) {
-            ForEach(model.types) { type in
+            ForEach(model.visibleTypes) { type in
                 Button {
                     Task { await model.record(env: env, type: type) }
                 } label: {
