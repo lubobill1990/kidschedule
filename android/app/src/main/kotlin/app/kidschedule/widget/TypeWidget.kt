@@ -1,10 +1,14 @@
 package app.kidschedule.widget
 
 import android.content.Context
+import android.os.SystemClock
+import android.widget.RemoteViews
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
@@ -12,6 +16,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.LocalContext
+import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.provideContent
@@ -20,6 +26,7 @@ import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.background
+import androidx.glance.color.ColorProvider
 import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
@@ -33,6 +40,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import app.kidschedule.KidScheduleApp
 import app.kidschedule.MainActivity
+import app.kidschedule.R
 import app.kidschedule.data.local.ActivityTypeEntity
 import app.kidschedule.data.local.BabyEntity
 import app.kidschedule.data.local.EventEntity
@@ -102,9 +110,19 @@ class TypeWidget : GlanceAppWidget() {
         val undoExpires = prefs[KidWidget.KEY_UNDO_EXPIRES] ?: 0L
         val undoActive = undoEventId != null && undoExpires > System.currentTimeMillis()
 
+        val tint = parseHex(type?.color)
+        val background = if (tint != null) {
+            // 按行为颜色调出浅底色,区分不同 widget;深色模式往黑压
+            ColorProvider(
+                day = lerp(Color.White, tint, 0.22f),
+                night = lerp(Color(0xFF1C1B1F), tint, 0.28f),
+            )
+        } else {
+            GlanceTheme.colors.widgetBackground
+        }
         Column(
             modifier = GlanceModifier.fillMaxSize()
-                .background(GlanceTheme.colors.widgetBackground)
+                .background(background)
                 .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -149,22 +167,46 @@ class TypeWidget : GlanceAppWidget() {
                 )
             }
             Spacer(GlanceModifier.height(6.dp))
-            Text(
-                summaryLine(type, lastEvent, todayCount),
-                style = TextStyle(fontSize = 11.sp, color = GlanceTheme.colors.onSurfaceVariant),
-            )
+            val ongoingEvent = lastEvent?.takeIf { type.kind == "duration" && it.status == "ongoing" }
+            if (ongoingEvent != null) {
+                // Glance 无原生计时控件,借 RemoteViews Chronometer 实时显示已进行时长
+                val rv = RemoteViews(
+                    LocalContext.current.packageName,
+                    R.layout.type_widget_chronometer,
+                )
+                val base = SystemClock.elapsedRealtime() -
+                    (System.currentTimeMillis() - ongoingEvent.startedAt)
+                rv.setChronometer(
+                    R.id.type_widget_chronometer,
+                    base,
+                    "进行中 %s · 今天 $todayCount 次",
+                    true,
+                )
+                AndroidRemoteViews(rv, GlanceModifier.fillMaxWidth())
+            } else {
+                Text(
+                    summaryLine(lastEvent, todayCount),
+                    style = TextStyle(fontSize = 11.sp, color = GlanceTheme.colors.onSurfaceVariant),
+                )
+            }
         }
     }
 
-    private fun summaryLine(type: ActivityTypeEntity, last: EventEntity?, todayCount: Int): String {
-        val lastPart = when {
-            last == null -> "还没有记录"
-            type.kind == "duration" && last.status == "ongoing" ->
-                "进行中 · ${formatTime(last.startedAt)} 开始"
-            else -> "上次 ${formatTime(last.startedAt)}"
+    private fun summaryLine(last: EventEntity?, todayCount: Int): String {
+        val lastPart = if (last == null) {
+            "还没有记录"
+        } else {
+            "上次 ${formatTime(last.endedAt ?: last.startedAt)}"
         }
         return "$lastPart · 今天 ${todayCount} 次"
     }
+}
+
+private fun parseHex(hex: String?): Color? {
+    val h = hex ?: return null
+    if (!h.startsWith("#") || h.length != 7) return null
+    val v = h.drop(1).toLongOrNull(16) ?: return null
+    return Color(0xFF000000L or v)
 }
 
 private fun startOfToday(): Long = Calendar.getInstance().apply {

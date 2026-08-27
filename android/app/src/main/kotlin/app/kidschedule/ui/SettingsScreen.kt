@@ -1,7 +1,10 @@
 package app.kidschedule.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
@@ -29,13 +34,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.glance.appwidget.updateAll
 import app.kidschedule.KidScheduleApp
 import app.kidschedule.data.local.ActivityTypeEntity
 import app.kidschedule.data.local.BabyEntity
 import app.kidschedule.data.local.FamilyMemberEntity
 import app.kidschedule.data.sync.syncWithRetry
+import app.kidschedule.widget.KidWidget
+import app.kidschedule.widget.TypeWidget
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,6 +68,11 @@ fun SettingsScreen(app: KidScheduleApp, familyId: String, onBack: () -> Unit) {
         scope.launch {
             app.syncEngine.syncWithRetry()
             runCatching { app.reminderScheduler.rescheduleAll() }
+            // Glance 会话超时后不再响应 DB 变化,改名/换色后主动刷新 widget
+            runCatching {
+                KidWidget().updateAll(app)
+                TypeWidget().updateAll(app)
+            }
         }
     }
 
@@ -159,7 +174,7 @@ fun SettingsScreen(app: KidScheduleApp, familyId: String, onBack: () -> Unit) {
             onSave = { form ->
                 scope.launch {
                     app.catalogRepo.addActivityType(
-                        familyId, form.name, form.icon.ifBlank { null }, null, form.kind,
+                        familyId, form.name, form.icon.ifBlank { null }, form.color, form.kind,
                         form.maxDurationSec, form.reminderMode, form.reminderIntervalSec,
                         sortOrder = types.size, babyId = form.babyId,
                     )
@@ -185,6 +200,7 @@ fun SettingsScreen(app: KidScheduleApp, familyId: String, onBack: () -> Unit) {
                             reminderMode = form.reminderMode,
                             reminderFixedIntervalSec = form.reminderIntervalSec,
                             babyId = form.babyId,
+                            color = form.color,
                         )
                     )
                     editType = null
@@ -330,6 +346,12 @@ private data class TypeForm(
     val reminderMode: String,
     val reminderIntervalSec: Long?,
     val babyId: String?,
+    val color: String?,
+)
+
+private val TYPE_COLORS = listOf(
+    "#5B8DEF", "#63C5DA", "#7BC47F", "#F4B860",
+    "#E88B8B", "#8E7CC3", "#F49AC1", "#A9836F",
 )
 
 @Composable
@@ -345,6 +367,7 @@ private fun TypeDialog(
     var icon by remember { mutableStateOf(initial?.icon ?: "") }
     var kind by remember { mutableStateOf(initial?.kind ?: "instant") }
     var babyId by remember { mutableStateOf(initial?.babyId) }
+    var color by remember { mutableStateOf(initial?.color) }
     var maxDurationMin by remember {
         mutableStateOf(initial?.defaultMaxDurationSec?.let { (it / 60).toString() } ?: "")
     }
@@ -395,6 +418,26 @@ private fun TypeDialog(
                     }
                     Spacer(Modifier.height(8.dp))
                 }
+                Text("颜色(widget 底色)", style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TYPE_COLORS.forEach { hex ->
+                        val selected = color == hex
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(Color(("FF" + hex.drop(1)).toLong(16)))
+                                .then(
+                                    if (selected) {
+                                        Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                    } else Modifier
+                                )
+                                .clickable { color = if (selected) null else hex },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
                 Text("提醒", style = MaterialTheme.typography.labelMedium)
                 Spacer(Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -440,6 +483,7 @@ private fun TypeDialog(
                                         reminderIntervalMin.toLongOrNull()?.times(60)
                                     } else null,
                                     babyId = babyId,
+                                    color = color,
                                 )
                             )
                         },

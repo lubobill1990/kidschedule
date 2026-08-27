@@ -246,7 +246,7 @@ private fun TypeCard(
                     style = MaterialTheme.typography.bodySmall,
                 )
                 last != null -> Text(
-                    "上次 ${TimeFmt.relative(last!!.startedAt, now)}",
+                    "上次 ${TimeFmt.relative(last!!.endedAt ?: last!!.startedAt, now)}",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 else -> Text("还没有记录", style = MaterialTheme.typography.bodySmall)
