@@ -71,6 +71,11 @@ fun EventDetailDialog(
     val timeValid = startMillis != null && (!showEnd || (endMillis != null && endMillis >= startMillis))
     val attachments by app.database.eventAttachmentDao().observeForEvent(event.id)
         .collectAsState(initial = emptyList())
+    val members by app.database.familyMemberDao().observeAll(familyId)
+        .collectAsState(initial = emptyList())
+    // 本地新建行 createdBy 为空 → 归到当前用户
+    val myUserId = remember { app.authRepo.currentUserId() }
+    val creator = members.firstOrNull { it.userId == (event.createdBy ?: myUserId) }
 
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(5)
@@ -88,6 +93,13 @@ fun EventDetailDialog(
                 Text(typeName, style = MaterialTheme.typography.titleMedium)
                 if (event.status == "ongoing") {
                     Text("进行中", style = MaterialTheme.typography.bodySmall)
+                }
+                creator?.let {
+                    Text(
+                        "记录人:${it.avatarEmoji ?: ""}${it.displayName ?: ""}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
                 }
                 Spacer(Modifier.height(12.dp))
 

@@ -25,6 +25,11 @@ struct EventDetailView: View {
         model.typesById[original.activityTypeId]
     }
 
+    /// 本地新建行 createdBy 为空 → 归到当前用户
+    private var creator: FamilyMemberRow? {
+        model.membersById[original.createdBy ?? model.myUserId ?? ""]
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -40,6 +45,11 @@ struct EventDetailView: View {
                         Spacer()
                         if original.status == "ongoing" {
                             Text("进行中").foregroundStyle(.tint)
+                        }
+                    }
+                    if let creator {
+                        LabeledContent("记录人") {
+                            Text("\(creator.avatarEmoji ?? "👤") \(creator.displayName ?? "")")
                         }
                     }
                 }
