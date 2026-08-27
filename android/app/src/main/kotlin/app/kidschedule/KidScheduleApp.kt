@@ -2,6 +2,9 @@ package app.kidschedule
 
 import android.app.Application
 import app.kidschedule.data.DeviceId
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import app.kidschedule.data.local.AppDatabase
 import app.kidschedule.data.remote.Supa
 import app.kidschedule.data.repo.AttachmentRepo
@@ -14,6 +17,9 @@ import app.kidschedule.data.sync.SyncEngine
 import app.kidschedule.reminder.ReminderScheduler
 
 class KidScheduleApp : Application() {
+
+    // UI 关闭后仍要继续的后台工作(如保存后的同步)挂在这里,别用 composable scope
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     val database: AppDatabase by lazy { AppDatabase.build(this) }
     val supabase by lazy { Supa.create() }

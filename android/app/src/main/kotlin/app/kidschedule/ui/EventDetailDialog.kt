@@ -82,8 +82,11 @@ fun EventDetailDialog(
     ) { uris ->
         if (uris.isNotEmpty()) scope.launch {
             uris.forEach { app.attachmentRepo.add(familyId, event.id, it) }
-            runCatching { app.attachmentRepo.uploadPending() }
-            app.syncEngine.syncWithRetry()
+            // 上传/同步可能很慢,放 appScope 后台跑,dialog 关闭也不中断
+            app.appScope.launch {
+                runCatching { app.attachmentRepo.uploadPending() }
+                app.syncEngine.syncWithRetry()
+            }
         }
     }
 
@@ -153,8 +156,8 @@ fun EventDetailDialog(
                         TextButton(onClick = {
                             scope.launch {
                                 app.recordRepo.softDelete(event.id)
-                                app.syncEngine.syncWithRetry()
                                 onDismiss()
+                                app.appScope.launch { app.syncEngine.syncWithRetry() }
                             }
                         }) { Text("确认删除", color = MaterialTheme.colorScheme.error) }
                         TextButton(onClick = { confirmDelete = false }) { Text("取消") }
@@ -173,6 +176,7 @@ fun EventDetailDialog(
                                         isInstantLike -> newStart
                                         else -> endMillis ?: event.endedAt
                                     }
+                                    // 离线优先:本地落库即完成,立刻关闭;同步放后台
                                     app.recordRepo.update(
                                         event.copy(
                                             startedAt = newStart,
@@ -180,8 +184,8 @@ fun EventDetailDialog(
                                             note = note.trim().ifEmpty { null },
                                         )
                                     )
-                                    app.syncEngine.syncWithRetry()
                                     onDismiss()
+                                    app.appScope.launch { app.syncEngine.syncWithRetry() }
                                 }
                             },
                             enabled = timeValid,

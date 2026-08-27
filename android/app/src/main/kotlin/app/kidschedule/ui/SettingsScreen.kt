@@ -64,8 +64,9 @@ fun SettingsScreen(app: KidScheduleApp, familyId: String, onBack: () -> Unit) {
     val members by app.database.familyMemberDao().observeAll(familyId).collectAsState(initial = emptyList())
     val me = members.firstOrNull { it.userId == myUserId }
 
+    // 挂在 appScope:返回主页也不中断同步
     fun syncAndReschedule() {
-        scope.launch {
+        app.appScope.launch {
             app.syncEngine.syncWithRetry()
             runCatching { app.reminderScheduler.rescheduleAll() }
             // Glance 会话超时后不再响应 DB 变化,改名/换色后主动刷新 widget

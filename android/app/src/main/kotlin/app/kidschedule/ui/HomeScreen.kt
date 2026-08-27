@@ -81,8 +81,9 @@ fun HomeScreen(app: KidScheduleApp, familyId: String) {
         }
     }
 
+    // 挂在 appScope:离开页面也不中断同步
     fun requestSync(delayMillis: Long = 0) {
-        scope.launch {
+        app.appScope.launch {
             if (delayMillis > 0) delay(delayMillis)
             runCatching { app.recordRepo.autoEndOverdue() }
             runCatching { app.attachmentRepo.uploadPending() }
