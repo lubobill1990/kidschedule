@@ -1,0 +1,38 @@
+name: iOS CI
+
+on:
+  push:
+    branches: [main]
+    paths: ['ios/**', 'shared-tests/**', '.github/workflows/ios-ci.yml']
+  pull_request:
+    paths: ['ios/**', 'shared-tests/**', '.github/workflows/ios-ci.yml']
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: macos-26
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
+          xcodebuild -version
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Run unit tests on simulator
+        run: |
+          UDID=$(xcrun simctl list devices available --json | \
+            jq -r '[.devices[] | .[] | select(.isAvailable)] | .[0].udid')
+          echo "Using simulator $UDID"
+          xcodebuild test -project KidSchedule.xcodeproj -scheme KidSchedule \
+            -destination "id=$UDID" \
+            CODE_SIGNING_ALLOWED=NO
