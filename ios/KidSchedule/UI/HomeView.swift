@@ -1,5 +1,6 @@
 import SwiftUI
 import GRDB
+import WidgetKit
 
 struct UndoState: Equatable {
     let eventId: String
@@ -16,9 +17,10 @@ final class HomeModel: ObservableObject {
     @Published var isSyncing = false
 
     var selectedBabyId: String? {
-        get { UserDefaults.standard.string(forKey: "selected_baby_id") }
+        get { AppGroup.defaults.string(forKey: "selected_baby_id") }
         set {
-            UserDefaults.standard.set(newValue, forKey: "selected_baby_id")
+            AppGroup.defaults.set(newValue, forKey: "selected_baby_id")
+            WidgetCenter.shared.reloadAllTimelines()
             objectWillChange.send()
         }
     }
@@ -121,6 +123,7 @@ final class HomeModel: ObservableObject {
         await env.syncEngine.syncWithRetry()
         isSyncing = false
         await reload(env: env)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }
 

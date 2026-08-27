@@ -270,8 +270,8 @@ final class FamilyRepo {
     }
 
     var currentFamilyId: String? {
-        get { UserDefaults.standard.string(forKey: "current_family_id") }
-        set { UserDefaults.standard.set(newValue, forKey: "current_family_id") }
+        get { AppGroup.defaults.string(forKey: "current_family_id") }
+        set { AppGroup.defaults.set(newValue, forKey: "current_family_id") }
     }
 
     private func rpcString(_ fn: String, _ params: [String: Any]) async throws -> String {

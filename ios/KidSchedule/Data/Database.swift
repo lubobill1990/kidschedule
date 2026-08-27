@@ -12,11 +12,7 @@ final class AppDb {
     }
 
     static func defaultPath() throws -> String {
-        let dir = try FileManager.default.url(
-            for: .applicationSupportDirectory, in: .userDomainMask,
-            appropriateFor: nil, create: true
-        )
-        return dir.appendingPathComponent("kidschedule.sqlite").path
+        try AppGroup.databasePath()
     }
 
     static var migrator: DatabaseMigrator {
@@ -102,9 +98,9 @@ final class AppDb {
 enum DeviceId {
     static func get() -> String {
         let key = "device_id"
-        if let v = UserDefaults.standard.string(forKey: key) { return v }
+        if let v = AppGroup.defaults.string(forKey: key) { return v }
         let v = UUID().uuidString.lowercased()
-        UserDefaults.standard.set(v, forKey: key)
+        AppGroup.defaults.set(v, forKey: key)
         return v
     }
 }

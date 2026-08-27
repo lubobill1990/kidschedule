@@ -26,6 +26,12 @@ targets:
       - path: KidSchedule
     dependencies:
       - package: GRDB
+      - target: KidScheduleWidget
+    entitlements:
+      path: KidSchedule/KidSchedule.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.weavejam.kidschedule
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.weavejam.kidschedule
@@ -48,6 +54,33 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
+
+  KidScheduleWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: KidScheduleWidget
+      - path: KidSchedule/Core
+      - path: KidSchedule/Data
+    dependencies:
+      - package: GRDB
+    entitlements:
+      path: KidScheduleWidget/KidScheduleWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.weavejam.kidschedule
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.weavejam.kidschedule.widget
+        TARGETED_DEVICE_FAMILY: "1,2"
+    info:
+      path: KidScheduleWidget/Info.plist
+      properties:
+        CFBundleDisplayName: 亲选带娃记
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
 
   KidScheduleTests:
     type: bundle.unit-test
