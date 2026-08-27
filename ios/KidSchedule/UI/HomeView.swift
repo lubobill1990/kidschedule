@@ -143,6 +143,7 @@ struct HomeView: View {
     @StateObject private var model = HomeModel()
     @State private var showBackfill = false
     @State private var showSettings = false
+    @State private var showStats = false
     @State private var editingEvent: EventRow?
 
     var body: some View {
@@ -168,6 +169,7 @@ struct HomeView: View {
                         }
                     }
                     Button { showBackfill = true } label: { Image(systemName: "plus.circle") }
+                    Button { showStats = true } label: { Image(systemName: "chart.bar.xaxis") }
                     Button { showSettings = true } label: { Image(systemName: "gearshape") }
                 }
             }
@@ -194,6 +196,9 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(model: model)
+        }
+        .sheet(isPresented: $showStats) {
+            StatsView(model: model)
         }
         .sheet(item: $editingEvent) { event in
             EventDetailView(model: model, event: event)
