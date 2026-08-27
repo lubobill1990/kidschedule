@@ -9,6 +9,7 @@ struct WidgetUndoState: Codable {
     var eventId: String
     var typeName: String
     var deadlineMillis: Int64
+    var typeId: String?
 }
 
 enum WidgetUndoStore {
@@ -79,9 +80,11 @@ struct QuickRecordIntent: AppIntent {
             WidgetUndoStore.save(WidgetUndoState(
                 eventId: eventId,
                 typeName: pick.type.name,
-                deadlineMillis: nowEpochMillis() + Int64(SyncProtocol.undoWindowSec) * 1000
+                deadlineMillis: nowEpochMillis() + Int64(SyncProtocol.undoWindowSec) * 1000,
+                typeId: pick.type.id
             ))
         }
+        WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
 }
@@ -96,6 +99,7 @@ struct UndoRecordIntent: AppIntent {
             _ = try await repo.undo(eventId: s.eventId)
         }
         WidgetUndoStore.clear()
+        WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
 }

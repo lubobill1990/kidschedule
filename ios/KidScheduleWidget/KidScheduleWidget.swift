@@ -6,6 +6,7 @@ import WidgetKit
 struct KidScheduleWidgetBundle: WidgetBundle {
     var body: some Widget {
         QuickRecordWidget()
+        SingleTypeWidget()
     }
 }
 
@@ -172,7 +173,7 @@ struct QuickRecordView: View {
     }
 }
 
-private func widgetColor(_ hex: String?) -> Color {
+func widgetColor(_ hex: String?) -> Color {
     guard let hex, hex.hasPrefix("#"), hex.count == 7,
           let v = UInt32(hex.dropFirst(), radix: 16)
     else { return .gray }
