@@ -101,7 +101,7 @@ fun HomeScreen(app: KidScheduleApp, familyId: String) {
     }
 
     if (showStats && babyId != null) {
-        StatsScreen(app, babyId, onBack = { showStats = false })
+        StatsScreen(app, familyId, babyId, onBack = { showStats = false })
         return
     }
     if (showSettings) {
