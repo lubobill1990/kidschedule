@@ -16,13 +16,15 @@ import java.util.concurrent.TimeUnit
 class RecordAction : ActionCallback {
     companion object {
         val TYPE_ID = ActionParameters.Key<String>("typeId")
+        val BABY_ID = ActionParameters.Key<String>("babyId")
     }
 
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val app = context.applicationContext as KidScheduleApp
         val typeId = parameters[TYPE_ID] ?: return
         val familyId = app.familyRepo.currentFamilyId ?: return
-        val baby = app.database.babyDao().observeAll().first().firstOrNull() ?: return
+        val baby = parameters[BABY_ID]?.let { app.database.babyDao().getById(it) }
+            ?: app.database.babyDao().observeAll().first().firstOrNull() ?: return
         val type = app.database.activityTypeDao().getById(typeId) ?: return
 
         val undo: Pair<String, String>? = when {
@@ -51,6 +53,7 @@ class RecordAction : ActionCallback {
             enqueueWidgetSync(context, delayMillis = Protocol.UNDO_WINDOW_SEC * 1000L + 500)
         }
         KidWidget().updateAll(context)
+        TypeWidget().updateAll(context)
     }
 }
 
@@ -66,6 +69,7 @@ class UndoAction : ActionCallback {
         }
         eventId?.let { app.recordRepo.undo(it) }
         KidWidget().updateAll(context)
+        TypeWidget().updateAll(context)
     }
 }
 

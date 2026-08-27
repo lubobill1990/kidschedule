@@ -19,6 +19,9 @@ interface BabyDao {
     @Query("SELECT * FROM babies WHERE deletedAt IS NULL ORDER BY name")
     fun observeAll(): Flow<List<BabyEntity>>
 
+    @Query("SELECT * FROM babies WHERE id = :id")
+    fun observeById(id: String): Flow<BabyEntity?>
+
     // 以下阻塞方法仅供同步层在事务内使用
     @Upsert
     fun upsertBlocking(baby: BabyEntity)
@@ -43,6 +46,9 @@ interface ActivityTypeDao {
 
     @Query("SELECT * FROM activity_types WHERE deletedAt IS NULL ORDER BY sortOrder, name")
     fun observeAll(): Flow<List<ActivityTypeEntity>>
+
+    @Query("SELECT * FROM activity_types WHERE id = :id AND deletedAt IS NULL")
+    fun observeById(id: String): Flow<ActivityTypeEntity?>
 
     @Upsert
     fun upsertBlocking(type: ActivityTypeEntity)
@@ -116,6 +122,13 @@ interface EventDao {
            ORDER BY startedAt DESC"""
     )
     fun observeRange(babyId: String, from: Long, to: Long): Flow<List<EventEntity>>
+
+    @Query(
+        """SELECT COUNT(*) FROM events
+           WHERE babyId = :babyId AND activityTypeId = :typeId
+             AND deletedAt IS NULL AND startedAt >= :from"""
+    )
+    fun observeCountSince(babyId: String, typeId: String, from: Long): Flow<Int>
 
     @Upsert
     fun upsertBlocking(event: EventEntity)

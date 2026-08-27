@@ -21,7 +21,9 @@ class WidgetSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
 
         val now = System.currentTimeMillis()
         val manager = GlanceAppWidgetManager(applicationContext)
-        manager.getGlanceIds(KidWidget::class.java).forEach { gid ->
+        val allIds = manager.getGlanceIds(KidWidget::class.java) +
+            manager.getGlanceIds(TypeWidget::class.java)
+        allIds.forEach { gid ->
             updateAppWidgetState(applicationContext, gid) { prefs ->
                 val expires = prefs[KidWidget.KEY_UNDO_EXPIRES] ?: return@updateAppWidgetState
                 if (expires <= now) {
@@ -32,6 +34,7 @@ class WidgetSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
             }
         }
         KidWidget().updateAll(applicationContext)
+        TypeWidget().updateAll(applicationContext)
         return if (synced || runAttemptCount >= 3) Result.success() else Result.retry()
     }
 }

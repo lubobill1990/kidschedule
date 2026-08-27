@@ -2,4 +2,6 @@
 <resources>
     <string name="app_name">KidSchedule</string>
     <string name="widget_description">一键记录宝宝的喂奶、尿便等日常</string>
+    <string name="type_widget_description">单个行为的快捷记录:开始/结束、上次时间、今日次数</string>
+    <string name="type_widget_label">单行为记录</string>
 </resources>
