@@ -9,7 +9,17 @@ const HOOK_SECRET = Deno.env.get("SMS_HOOK_SECRET") ?? "";
 const TRANSPORT = Deno.env.get("SMS_TRANSPORT") ?? "aliyun";
 const ALIYUN_AK_ID = Deno.env.get("ALIYUN_ACCESS_KEY_ID") ?? "";
 const ALIYUN_AK_SECRET = Deno.env.get("ALIYUN_ACCESS_KEY_SECRET") ?? "";
-const SIGN_NAME = Deno.env.get("ALIYUN_SMS_SIGN_NAME") ?? "";
+// 签名是中文,secrets 注入非 ASCII 可能被损坏 → 支持 base64:前缀,或直接用默认值
+function decodeSignName(): string {
+  const raw = Deno.env.get("ALIYUN_SMS_SIGN_NAME") ?? "";
+  if (raw.startsWith("base64:")) {
+    return new TextDecoder().decode(
+      Uint8Array.from(atob(raw.slice(7)), (c) => c.charCodeAt(0)),
+    );
+  }
+  return raw;
+}
+const SIGN_NAME = decodeSignName();
 const TEMPLATE_CODE = Deno.env.get("ALIYUN_SMS_TEMPLATE_CODE") ?? "";
 
 // 阿里云 RPC 签名要求的特殊 URL 编码
@@ -63,7 +73,8 @@ async function sendAliyunSms(phone: string, otp: string): Promise<void> {
   const resp = await fetch(url);
   const body = await resp.json();
   if (body.Code !== "OK") {
-    throw new Error(`aliyun sms failed: ${body.Code} ${body.Message}`);
+    const signHex = [...SIGN_NAME].map((c) => c.codePointAt(0)!.toString(16)).join(",");
+    throw new Error(`aliyun sms failed: ${body.Code} ${body.Message} (sign=[${signHex}])`);
   }
 }
 

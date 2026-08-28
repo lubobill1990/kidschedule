@@ -13,12 +13,20 @@ Supabase 手机号 OTP 登录的短信发送通道:Supabase 生成并校验验�
 # hook 请求来自 Supabase Auth(webhook 签名鉴权),不带用户 JWT
 supabase functions deploy send-sms --no-verify-jwt
 
+# 注意:Supabase secrets 注入非 ASCII 值会损坏,中文签名必须用 base64: 前缀
+# printf '签名名称' | base64
 supabase secrets set \
   ALIYUN_ACCESS_KEY_ID=xxx \
   ALIYUN_ACCESS_KEY_SECRET=xxx \
-  ALIYUN_SMS_SIGN_NAME=签名名称 \
+  ALIYUN_SMS_SIGN_NAME=base64:xxxx \
   ALIYUN_SMS_TEMPLATE_CODE=SMS_xxxxx
 ```
+
+当前生产配置:签名「苏州智视妙言」、模板 `SMS_338340165`(变量 `code`)。
+
+> 签名过审后运营商还需实名制端口报备(平均 5-7 个工作日),期间发送回执报
+> `PORT_NOT_REGISTERED`(API 返回 OK 但运营商拒收)。报备状态看控制台签名管理页;
+> 送达情况用 `QuerySendDetails` 查回执。
 
 ## 启用 Hook
 
